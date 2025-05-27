@@ -38,7 +38,7 @@ func PrivateGetGroups(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 		_, err := bot.Send(msg)
 		return err
 	}
-	deleteCallback, err := getStr(callbacks.MyCallback{
+	deleteCallback, err := callbacks.GetStrFromCallback(callbacks.MyCallback{
 		Action: "delete",
 	})
 	if err != nil {
@@ -53,7 +53,7 @@ func PrivateGetGroups(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	for el := listGroups.Front(); el != nil; el = el.Next() {
 		groupData := el.Value.(db.GroupData)
 		if groupData.Name != "" && groupData.Tg_id != "" {
-			selectGroupCallback, err := getStr(
+			selectGroupCallback, err := callbacks.GetStrFromCallback(
 				callbacks.MyCallback{Action: "group", GroupId: groupData.Tg_id},
 			)
 			if err != nil {

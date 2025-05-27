@@ -114,7 +114,7 @@ func (db *DB) CheckExistUser(user_id string, group_id string) error {
 		if err != nil {
 			return err
 		}
-		_, err = db.conn.Exec(context.Background(), "INSERT INTO users_of_group (user_id, group_id) SELECT u.Id, g.Id FROM user_data u JOIN group_data.g ON g.Tg_id=$1 WHERE u.Tg_id=$2", group_id, user_id)
+		_, err = db.conn.Exec(context.Background(), "INSERT INTO users_of_group (user_id, group_id) SELECT u.Id, g.Id FROM user_data u JOIN group_data g ON g.Tg_id=$1 WHERE u.Tg_id=$2", group_id, user_id)
 		return err
 
 	} else if err != nil {
@@ -227,4 +227,8 @@ func (db *DB) GetLastTimeUse(groupId string, timeLastUse *time.Time) error {
 	}
 	_, err = db.conn.Exec(context.Background(), "UPDATE group_data SET data_last_use=now() WHERE Tg_id=$1 ", groupId)
 	return err
+}
+
+func (db *DB) GetGroupInfo(groupId string, tg_id *string, name *string, subDate *time.Time) error {
+	return db.conn.QueryRow(context.Background(), "SELECT tg_id, name, sub_end_date FROM group_data WHERE tg_id=$1", groupId).Scan(tg_id, name, subDate)
 }
