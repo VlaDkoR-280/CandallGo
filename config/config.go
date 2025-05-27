@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	BotToken string
+	DbUrl    string
 }
 
 func LoadConfig() Config {
@@ -18,6 +19,7 @@ func LoadConfig() Config {
 
 	return Config{
 		BotToken: os.Getenv("BotToken"),
+		DbUrl:    os.Getenv("database_url"),
 	}
 }
 func main() {
