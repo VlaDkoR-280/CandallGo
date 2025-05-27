@@ -3,8 +3,8 @@ package callbacks
 import (
 	"CandallGo/config"
 	"CandallGo/internal/db"
+	"CandallGo/internal/static"
 	"container/list"
-	"encoding/json"
 	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,28 +13,32 @@ import (
 	"time"
 )
 
-type MyCallback struct {
-	Action  string `json:"action"`
-	Id      int64  `json:"id"`
-	GroupId string `json:"group_id"`
-}
+//type MyCallback struct {
+//	Action  string `json:"action"`
+//	Id      int64  `json:"id"`
+//	GroupId string `json:"group_id"`
+//}
 
 func Callback(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	callback := update.CallbackQuery
-	var parsed MyCallback
-	err := json.Unmarshal([]byte(callback.Data), &parsed)
+	parsed, err := static.DecodeState(callback.Data)
 	if err != nil && !strings.Contains(err.Error(), "cannot unmarshal") {
 		return err
 	}
-
+	if parsed.Data == "" {
+		return errors.New("GroupId from callback is empty")
+	}
 	switch parsed.Action {
 	case "delete":
 		return deleteCallback(bot, *callback)
-	case "group":
-		if parsed.GroupId == "" {
-			return errors.New("GroupId from callback is empty")
-		}
+	case "groups":
 		return groupInfo(bot, *callback, parsed)
+	case "refund":
+		return nil
+	case "list_subs":
+		return nil
+	case "list_types_of_sub":
+		return nil
 	}
 
 	return errors.New("Error of callback Action: " + parsed.Action)
@@ -49,7 +53,7 @@ func deleteCallback(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery) error
 
 }
 
-func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCallback) error {
+func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, state static.State) error {
 
 	// проверка прав доступа
 	db_url := config.LoadConfig().DbUrl
@@ -60,10 +64,11 @@ func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCal
 	defer database.Close()
 
 	var groupList list.List
-	err = database.GetGroupsOfUser(strconv.FormatInt(callback.From.ID, 10), data.GroupId, &groupList)
+	err = database.GetGroupsOfUser(strconv.FormatInt(callback.From.ID, 10), state.Data, &groupList)
 	if err != nil {
 		return err
 	}
+
 	checkPermission := func(mList list.List, value string) bool {
 		for el := mList.Front(); el != nil; el = el.Next() {
 			if el.Value.(db.GroupData).Tg_id == value {
@@ -73,7 +78,7 @@ func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCal
 		return false
 	}
 
-	if !checkPermission(groupList, data.GroupId) {
+	if !checkPermission(groupList, state.Data) {
 		return errors.New("User does not have permission")
 	}
 
@@ -84,7 +89,7 @@ func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCal
 	}
 	var groupData mData
 
-	err = database.GetGroupInfo(data.GroupId, &groupData.GroupId, &groupData.Name, &groupData.DateOfEndSub)
+	err = database.GetGroupInfo(state.Data, &groupData.GroupId, &groupData.Name, &groupData.DateOfEndSub)
 	if err != nil {
 		return err
 	}
@@ -101,17 +106,16 @@ func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCal
 	var finalText string
 	var finalCallback string
 	if statusSub == "OK" {
-		finalText = "Запросить ваозрат средств"
-		finalCallback, err = GetStrFromCallback(MyCallback{
-			Action:  "refund",
-			GroupId: groupData.GroupId,
+		finalText = "Запросить возврат средств"
+		finalCallback, err = static.EncodeState(static.State{
+			Action: "refund",
+			Data:   groupData.GroupId,
 		})
-
 	} else if statusSub == "NO" {
 		finalText = "Список подписок"
-		finalCallback, err = GetStrFromCallback(MyCallback{
-			Action:  "list_of_sub",
-			GroupId: groupData.GroupId,
+		finalCallback, err = static.EncodeState(static.State{
+			Action: "list_of_sub",
+			Data:   groupData.GroupId,
 		})
 	} else {
 		return errors.New(fmt.Sprintf("Failed statusSub {%s} ", statusSub))
@@ -131,13 +135,4 @@ func groupInfo(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery, data MyCal
 	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
 	_, err = bot.Request(deleteMsg)
 	return err
-}
-
-func GetStrFromCallback(callback MyCallback) (string, error) {
-	callbackJSON, err := json.Marshal(callback)
-	if err != nil {
-		return "", err
-	}
-	callbackString := string(callbackJSON)
-	return callbackString, nil
 }
