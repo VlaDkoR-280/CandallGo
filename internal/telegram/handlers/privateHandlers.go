@@ -3,10 +3,9 @@ package handlers
 import (
 	"CandallGo/config"
 	"CandallGo/internal/db"
-	"CandallGo/internal/telegram/callbacks"
+	"CandallGo/internal/static"
 	_ "CandallGo/internal/telegram/callbacks"
 	"container/list"
-	"encoding/json"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"strconv"
 )
@@ -38,7 +37,7 @@ func PrivateGetGroups(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 		_, err := bot.Send(msg)
 		return err
 	}
-	deleteCallback, err := callbacks.GetStrFromCallback(callbacks.MyCallback{
+	deleteCallback, err := static.EncodeState(static.State{
 		Action: "delete",
 	})
 	if err != nil {
@@ -53,8 +52,8 @@ func PrivateGetGroups(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	for el := listGroups.Front(); el != nil; el = el.Next() {
 		groupData := el.Value.(db.GroupData)
 		if groupData.Name != "" && groupData.Tg_id != "" {
-			selectGroupCallback, err := callbacks.GetStrFromCallback(
-				callbacks.MyCallback{Action: "group", GroupId: groupData.Tg_id},
+			selectGroupCallback, err := static.EncodeState(
+				static.State{Action: "group", Data: groupData.Tg_id},
 			)
 			if err != nil {
 				return err
@@ -71,13 +70,4 @@ func PrivateGetGroups(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	_, err = bot.Send(msg)
 	return err
 
-}
-
-func getStr(callback callbacks.MyCallback) (string, error) {
-	callbackJSON, err := json.Marshal(callback)
-	if err != nil {
-		return "", err
-	}
-	callbackString := string(callbackJSON)
-	return callbackString, nil
 }
