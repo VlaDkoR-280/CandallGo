@@ -1,10 +1,12 @@
 package telegram
 
 import (
-	"CandallGo/internal/telegram/callbacks"
-	"CandallGo/internal/telegram/handlers"
+	"CandallGo/config"
+	"CandallGo/internal/db"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+	"strconv"
+	"strings"
 )
 
 type Bot struct {
@@ -23,79 +25,58 @@ func (bot *Bot) Start() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.api.GetUpdatesChan(u)
+	conn, err := db.Connect(config.LoadConfig().DbUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	var maxUpdates = make(chan struct{}, 50)
 	for update := range updates {
-		if update.CallbackQuery != nil {
-			err := callbacks.Callback(bot.api, update)
-			if err != nil {
-				log.Printf("Error: %s | Callback: %s ", err, update.CallbackQuery.Data)
-			}
+		if update.Message == nil || update.Message.From.IsBot {
 			continue
 		}
-		if update.Message == nil {
-			continue
-		}
-		// CHAT TYPE: “private”, “group”, “supergroup” or “channel”
-		switch update.Message.Chat.Type {
-		case "supergroup", "group":
-			groupCommands(bot, update)
-		case "private":
-			privateCommands(bot, update)
-		case "channel":
+		maxUpdates <- struct{}{}
 
-		}
+		go func() {
+			defer func() { <-maxUpdates }()
+			err := checkGroup(&update, conn)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Printf("Обработано: %s", update.Message.Text)
+		}()
+		//// CHAT TYPE: “private”, “group”, “supergroup” or “channel”
 
 	}
 }
-func channelReply(bot *Bot, update tgbotapi.Update) {}
-func privateCommands(bot *Bot, update tgbotapi.Update) {
-	cmd := update.Message.Command()
-	switch cmd {
-	case "start":
-		err := handlers.PrivateStart(bot.api, update)
-		if err != nil {
-			log.Println("ErrorStartPrivate: ", err)
+
+func checkGroup(update *tgbotapi.Update, conn *db.DB) error {
+	var groupData db.GroupData
+	groupData.TgId = strconv.FormatInt(update.Message.Chat.ID, 10)
+	groupData.GroupName = update.Message.Chat.Title
+	groupData.IsGroup = update.Message.Chat.IsGroup()
+
+	dbData, err := conn.GetGroupData(groupData.TgId)
+	if err != nil {
+		if !strings.Contains(err.Error(), "no rows in result") {
+			return err
 		}
-	case "group":
-		// Get groups of user
-		err := handlers.PrivateGetGroups(bot.api, update)
+
+		err = conn.AddGroup(groupData.TgId, groupData.GroupName, groupData.IsGroup)
 		if err != nil {
-			log.Println("ErrorGetGroups: ", err)
+			log.Println("AddGroup", err)
 		}
+		return nil
 	}
-}
-func groupCommands(bot *Bot, update tgbotapi.Update) {
-	cmd := update.Message.Command()
-	switch cmd {
-	case "all":
-		err := handlers.AllTags(bot.api, update)
-		if err != nil {
-			log.Println("ErrorAllTag: ", err)
-		}
-	case "start":
-		err := handlers.StartHandler(bot.api, update)
-		if err != nil {
-			log.Println("ErrorStartMsg: Start: ", err)
-		}
-	case "update":
-		err := handlers.Update(bot.api, update)
-		if err != nil {
-			log.Println("ErrorUpdateUsers: ", err)
-		}
-	default:
-		if len(update.Message.NewChatMembers) > 0 {
-			err := handlers.NewMembers(bot.api, update)
-			if err != nil {
-				log.Println("Error new members: ", err)
-			}
-		} else if update.Message.LeftChatMember != nil {
-			err := handlers.LeftMember(bot.api, update)
-			if err != nil {
-				log.Println("Error leftMember: ", err)
-			}
-		}
-		err := handlers.MessageHandler(bot.api, update)
-		if err != nil {
-			log.Println("ErrorMsg: Default: ", err)
-		}
+	var needUpdate = false
+	if dbData.GroupName != groupData.GroupName {
+		needUpdate = true
+		groupData.GroupName = ""
 	}
+
+	if needUpdate {
+		err = conn.UpdateGroupData(groupData)
+		return err
+	}
+	return nil
 }

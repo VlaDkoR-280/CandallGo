@@ -10,6 +10,5 @@ type Provider struct {
 }
 
 func PaymentCallback(bot *tgbotapi.BotAPI, callback tgbotapi.CallbackQuery) error {
-	
 	return nil
 }
