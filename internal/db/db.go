@@ -52,7 +52,7 @@ func (db *DB) GetGroupData(groupId string) (groupData GroupData, err error) {
 }
 
 // GetGroupsOfUser получение списка групп пользователя
-func (db *DB) GetGroupsOfUser(userId, groupList *list.List) error {
+func (db *DB) GetGroupsOfUser(userId string, groupList *list.List, onlyGroup bool) error {
 	rows, err := db.conn.Query(context.Background(), "SELECT g.id, g.tg_id, g.name, g.isgroup, g.data_last_use, g.sub_end_date, g.time_last_update FROM group_data g JOIN users_of_group ug ON ug.group_id=g.id JOIN user_data u ON u.id=ug.user_id WHERE u.tg_id=$1", userId)
 	if err != nil {
 		return err
@@ -64,16 +64,18 @@ func (db *DB) GetGroupsOfUser(userId, groupList *list.List) error {
 		if err != nil {
 			return err
 		}
-		groupList.PushBack(group)
+		if group.IsGroup || !onlyGroup {
+			groupList.PushBack(group)
+		}
 	}
 
 	return nil
 }
 
 // GetUsersFromGroup получение списка пользователей в группе
-func (db *DB) GetUsersFromGroup(userId, groupId string, userList *list.List) error {
+func (db *DB) GetUsersFromGroup(groupId string, userList *list.List) error {
 
-	rows, err := db.conn.Query(context.Background(), "SELECT u.id, u.tg_id FROM user_data u JOIN users_of_group ug ON ug.user_id=u.id JOIN group_data g ON g.id=ug.group_id WHERE g.tg_id=$1 AND u.tg_id=$2", groupId, userId)
+	rows, err := db.conn.Query(context.Background(), "SELECT u.id, u.tg_id FROM user_data u JOIN users_of_group ug ON ug.user_id=u.id JOIN group_data g ON g.id=ug.group_id WHERE g.tg_id=$1", groupId)
 	if err != nil {
 		return err
 	}

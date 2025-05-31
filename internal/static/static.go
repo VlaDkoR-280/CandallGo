@@ -1,7 +1,11 @@
 package static
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
+// State
+// Action's: - "delete" - delete this msg, Data - msg.id
 type State struct {
 	Action string `json:"action"`
 	Data   string `json:"data"` // Дата зависит от Action и должна подходить под него

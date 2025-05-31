@@ -92,3 +92,19 @@ func generateNeedUpdate(groupData GroupData) (query string, paramsValues []inter
 func myErrorExec(mErr error, pgTag pgconn.CommandTag) error {
 	return errors.New(mErr.Error() + " | [PG_ANSWER]:: " + pgTag.String())
 }
+
+func (db *DB) AddUserToGroup(userId, groupId string) error {
+	userData, err := db.GetUserData(userId)
+	if err != nil {
+		return err
+	}
+	groupData, err := db.GetGroupData(groupId)
+	if err != nil {
+		return err
+	}
+	pgTag, err := db.conn.Exec(context.Background(), "INSERT INTO users_of_group (user_id, group_id) VALUES ($1, $2)", userData.Id, groupData.Id)
+	if err != nil {
+		return myErrorExec(err, pgTag)
+	}
+	return nil
+}

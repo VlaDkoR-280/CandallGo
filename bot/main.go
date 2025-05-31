@@ -37,6 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Bot connect Error", err)
 	}
+	defer bot.Close()
 	bot.Start()
 
 }
