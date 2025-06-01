@@ -133,19 +133,20 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 				Text: "К списку групп", CallbackData: &callbackDataBack,
 			}))
 
-	refundCallback, err := static.EncodeState(
-		static.State{Action: "refund", Data: groupData.TgId})
-	if err != nil {
-		return err
-	}
+	//refundCallback, err := static.EncodeState(
+	//	static.State{Action: "refund", Data: groupData.TgId})
+	//if err != nil {
+	//	return err
+	//}
 
-	if isSub {
-		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.InlineKeyboardButton{
-					Text: "Вернуть деньги за подписку", CallbackData: &refundCallback,
-				}))
-	} else {
+	//if isSub {
+	//	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
+	//		tgbotapi.NewInlineKeyboardRow(
+	//			tgbotapi.InlineKeyboardButton{
+	//				Text: "Вернуть деньги за подписку", CallbackData: &refundCallback,
+	//			}))
+	//}
+	if !isSub {
 		subCallback, err := static.EncodeState(
 			static.State{Action: "subscribe_methods", Data: groupData.TgId})
 		if err != nil {

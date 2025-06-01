@@ -115,3 +115,19 @@ func (db *DB) UpdateSubDate(groupId string, dateTime time.Time) error {
 		"UPDATE group_data SET sub_end_date=$1 WHERE tg_id=$2", dateTime, groupId)
 	return err
 }
+
+func (db *DB) RemoveLinkUsersWithGroup(groupId string) error {
+	_, err := db.conn.Exec(context.Background(),
+		"DELETE FROM users_of_group ug "+
+			"USING group_data g "+
+			"WHERE g.id = ug.group_id AND g.tg_id=$1", groupId)
+	return err
+}
+
+func (db *DB) RemoveLinkUserWithGroup(userId, groupId string) error {
+	_, err := db.conn.Exec(context.Background(),
+		"DELETE FROM users_of_group ug "+
+			"USING group_data g, user_data u "+
+			"WHERE g.id = ug.group_id AND u.id=ug.user_id AND g.tg_id=$1 AND u.tg_id=$2", groupId, userId)
+	return err
+}

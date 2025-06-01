@@ -39,7 +39,7 @@ func (bot *Bot) Start() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.api.GetUpdatesChan(u)
-
+	u.AllowedUpdates = []string{"my_chat_member"}
 	var maxUpdates = make(chan struct{}, 50)
 	for update := range updates {
 		maxUpdates <- struct{}{}
@@ -70,7 +70,30 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	// Удаление бота
+	//if update.MyChatMember != nil {
+	//	newStatus := update.MyChatMember.NewChatMember.Status
+	//
+	//	switch newStatus {
+	//	case "member", "administration":
+	//		msg := tgbotapi.NewMessage(update.MyChatMember.Chat.ID,
+	//			"Привет, я бот для тега всех участников в группе. Пожалуйста, выдай мне права администратора, иначе я не смогу видеть участников группы")
+	//		if _, err := bot.api.Send(msg); err != nil {
+	//			log.Println(err)
+	//		}
+	//	case "left", "kicked":
+	//		err := bot.conn.RemoveLinkUsersWithGroup(strconv.FormatInt(update.MyChatMember.Chat.ID, 10))
+	//		if err != nil {
+	//			log.Println(err)
+	//		}
+	//	}
+	//	return
+	//}
+
 	if update.Message != nil {
+		//if update.Message.NewChatMembers != nil {
+		//	return
+		//}
 		if update.Message.From.IsBot {
 			log.Printf("MSG_FROM_BOT <%s|%s>: %s", update.Message.From.LastName, update.Message.From.ID, update.Message.Text)
 			return
@@ -120,6 +143,7 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			}()
 
 		}
+
 		var wg sync.WaitGroup
 
 		wg.Add(1)
@@ -142,7 +166,10 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		case "private":
 			_ = handlers.PrivateHandler(bot.api, bot.conn, update)
 		case "group", "supergroup":
-			_ = handlers.GroupHandler(bot.api, bot.conn, update)
+			err := handlers.GroupHandler(bot.api, bot.conn, update)
+			if err != nil {
+				log.Println(err)
+			}
 		case "channel":
 			_ = handlers.ChannelHandler(bot.api, bot.conn, update)
 		}
@@ -158,13 +185,14 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		}
 
 	}
+
 }
 
 func (bot *Bot) checkGroup(update tgbotapi.Update) error {
 	var groupData db.GroupData
 	groupData.TgId = strconv.FormatInt(update.Message.Chat.ID, 10)
 	groupData.GroupName = update.Message.Chat.Title
-	groupData.IsGroup = update.Message.Chat.IsGroup()
+	groupData.IsGroup = update.Message.Chat.IsGroup() || update.Message.Chat.IsSuperGroup()
 
 	dbData, err := bot.conn.GetGroupData(groupData.TgId)
 	if err != nil {
