@@ -53,9 +53,26 @@ func (bot *Bot) Start() {
 }
 
 func (bot *Bot) myUpdate(update tgbotapi.Update) {
+	if update.PreCheckoutQuery != nil {
+		answer := tgbotapi.PreCheckoutConfig{
+			PreCheckoutQueryID: update.PreCheckoutQuery.ID,
+			OK:                 true,
+		}
+		_, err := bot.api.Request(answer)
+		if err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
 	if update.Message != nil {
 		if update.Message.From.IsBot {
 			log.Printf("MSG_FROM_BOT <%s|%s>: %s", update.Message.From.LastName, update.Message.From.ID, update.Message.Text)
+			return
+		}
+
+		if update.Message.SuccessfulPayment != nil {
+			log.Println("SUCCSESSFULPAYMENT")
 			return
 		}
 		var wg sync.WaitGroup
@@ -90,7 +107,11 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			log.Printf("MSG_FROM_BOT <%s|%s>: %s", update.CallbackQuery.From.LastName, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
 			return
 		}
-		_ = callbacks.MainCallback(bot.api, update, bot.conn)
+		// специальные исключения
+		if err := callbacks.MainCallback(bot.api, update, bot.conn, handlers.PrivateHandler); err != nil {
+			log.Println(err)
+		}
+
 	}
 }
 

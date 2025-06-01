@@ -3,6 +3,7 @@ package callbacks
 import (
 	"CandallGo/internal/db"
 	"CandallGo/internal/static"
+	"CandallGo/internal/telegram/payment"
 	"container/list"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ type data struct {
 	conn   *db.DB
 }
 
-func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB) error {
+func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, groupListCallback func(*tgbotapi.BotAPI, *db.DB, tgbotapi.Update) error) error {
 	state, err := static.DecodeState(update.CallbackData())
 	if err != nil {
 		return err
@@ -33,13 +34,17 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB) err
 	switch state.Action {
 	case "delete":
 		err = callData.deleteMsg()
+	case "groups":
+		err = callData.deleteMsg()
+		return groupListCallback(api, conn, update)
 	case "group":
 		err = callData.groupMsg()
 		if err != nil {
 			return err
 		}
 		err = callData.deleteMsg()
-		return err
+	default:
+		return payment.PaymentCallback(api, update, state, conn)
 	}
 	log.Println(state)
 	return err
@@ -142,7 +147,7 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 				}))
 	} else {
 		subCallback, err := static.EncodeState(
-			static.State{Action: "subscribe", Data: groupData.TgId})
+			static.State{Action: "subscribe_methods", Data: groupData.TgId})
 		if err != nil {
 			return err
 		}
