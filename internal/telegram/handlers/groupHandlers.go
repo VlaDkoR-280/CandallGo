@@ -8,6 +8,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) error {
@@ -112,8 +113,36 @@ func (handler *Handler) allCommand() error {
 	var userList list.List
 	var groupId = strconv.FormatInt(handler.update.Message.Chat.ID, 10)
 
-	err := handler.conn.GetUsersFromGroup(groupId, &userList)
+	groupData, err := handler.conn.GetGroupData(groupId)
 	if err != nil {
+		return err
+	}
+	var canTag = make(chan bool, 1)
+	var isSub = make(chan bool, 1)
+	go func() {
+		dateUse := groupData.DateLastUse.Truncate(24 * time.Hour)
+		dateNow := time.Now().Truncate(24 * time.Hour)
+		if dateUse.Equal(dateNow) {
+			msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, "Сегодня вы уже использовали бота, попробуйте завтра или купите подписку.")
+			_, err := handler.api.Send(msg)
+			if err != nil {
+				log.Println(err)
+			}
+			canTag <- false
+		}
+		if err := handler.conn.UpdateGroupData(db.GroupData{DateLastUse: dateNow, TgId: groupId}); err != nil {
+			log.Println(err)
+		}
+		canTag <- true
+	}()
+	go func() {
+		if groupData.SubDateEnd.After(time.Now()) {
+			canTag <- true
+		} else {
+			canTag <- false
+		}
+	}()
+	if err := handler.conn.GetUsersFromGroup(groupId, &userList); err != nil {
 		return err
 	}
 
@@ -137,8 +166,10 @@ func (handler *Handler) allCommand() error {
 
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, tagText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	if _, err := handler.api.Send(msg); err != nil {
-		return err
+	if <-canTag || <-isSub {
+		if _, err := handler.api.Send(msg); err != nil {
+			return err
+		}
 	}
 	return nil
 }

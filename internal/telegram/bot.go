@@ -108,7 +108,6 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				}
 			}()
 			go func() {
-
 				var subDays = make(chan int)
 				var cGroupId = make(chan string, 1)
 				go func() {
