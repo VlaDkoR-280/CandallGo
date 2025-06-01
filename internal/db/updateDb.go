@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
+	"time"
 )
 
 // AddUser добавление пользователя в БД
@@ -107,4 +108,10 @@ func (db *DB) AddUserToGroup(userId, groupId string) error {
 		return myErrorExec(err, pgTag)
 	}
 	return nil
+}
+
+func (db *DB) UpdateSubDate(groupId string, dateTime time.Time) error {
+	_, err := db.conn.Exec(context.Background(),
+		"UPDATE group_data SET sub_end_date=$1 WHERE tg_id=$2", dateTime, groupId)
+	return err
 }

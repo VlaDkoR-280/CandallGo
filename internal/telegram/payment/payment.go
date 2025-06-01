@@ -200,7 +200,13 @@ func (myData *data) purchaseCallback() error {
 		if err != nil {
 			return err
 		}
-		var productText = fmt.Sprintf("%d : %s", product.Price, product.Name)
+		var productText string
+		if product.CurrencyName != "XTR" {
+			productText = fmt.Sprintf("%d : %s", product.Price/100, product.Name)
+		} else {
+			productText = fmt.Sprintf("%d : %s", product.Price, product.Name)
+		}
+
 		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.InlineKeyboardButton{Text: productText, CallbackData: &buttonCallback}))
@@ -283,6 +289,7 @@ func (myData *data) invoiceCallback() error {
 	}
 	var sendInvoice = make(chan bool, 1)
 	var payload = uuid.New().String()
+	var invoiceMessage tgbotapi.Message
 	go func() {
 		invoice := tgbotapi.InvoiceConfig{
 			BaseChat:       tgbotapi.BaseChat{ChatID: myData.update.CallbackQuery.Message.Chat.ID},
@@ -298,12 +305,13 @@ func (myData *data) invoiceCallback() error {
 			IsFlexible:          false,
 			SuggestedTipAmounts: []int{},
 		}
-		_, err := myData.api.Send(invoice)
+		res, err := myData.api.Send(invoice)
 		if err != nil {
 			log.Println("Error sending invoice:", err)
 			sendInvoice <- false
 			return
 		}
+		invoiceMessage = res
 		sendInvoice <- true
 	}()
 	var chanGroupData = make(chan *db.GroupData, 1)
@@ -352,6 +360,27 @@ func (myData *data) invoiceCallback() error {
 		_, err := myData.api.Send(msg)
 		return err
 	}
+
+	go func() {
+
+		<-time.After(10 * time.Second)
+		is_paid, err := myData.conn.GetPaymentStatus(payload)
+		if err != nil {
+			log.Println("Error getting payment status:", err)
+			return
+		}
+		if !is_paid {
+			deleteMsg := tgbotapi.NewDeleteMessage(invoiceMessage.Chat.ID, invoiceMessage.MessageID)
+			if _, err := myData.api.Request(deleteMsg); err != nil {
+				log.Println("Error deleting payment status:", err)
+			}
+			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Один из запросов на платежей был удален, на платеж дается 10 минут. Повторите попытку")
+			if _, err := myData.api.Send(msg); err != nil {
+			}
+		}
+
+	}()
+
 	userData := <-chanUserData
 	groupData := <-chanGroupData
 	productData := <-chanProductList

@@ -85,6 +85,19 @@ func (db *DB) AddPayment(groupId, userId, currencyId, amount int, groupIdTg, use
 	return nil
 }
 
-func (db *DB) UpdateSuccessfulPayment(payload string, providerPaymentChargeId, telegramPaymentChargeId int, is_paid, is_canceled bool, paid_at time.Time) error {
-	return nil
+func (db *DB) GetPaymentStatus(payload string) (bool, error) {
+	var is_paid = false
+	err := db.conn.QueryRow(context.Background(), "SELECT is_paid FROM payment WHERE invoice_payload=$1", payload).Scan(&is_paid)
+	return is_paid, err
+}
+
+func (db *DB) UpdateSuccessfulPayment(payload, providerPaymentChargeId, telegramPaymentChargeId string, is_paid, is_canceled bool, paid_at time.Time) error {
+
+	if payload == "" {
+		return errors.New("payload is empty")
+	}
+	_, err := db.conn.Exec(context.Background(),
+		"UPDATE payment SET provider_payment_charge_id=$1, telegram_payment_charge_id=$2, is_paid=$3, is_canceled=$4, paid_at=$5 WHERE invoice_payload=$6", providerPaymentChargeId, telegramPaymentChargeId, is_paid, is_canceled, paid_at, payload)
+
+	return err
 }

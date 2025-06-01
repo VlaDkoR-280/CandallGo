@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Bot struct {
@@ -61,6 +62,10 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		_, err := bot.api.Request(answer)
 		if err != nil {
 			log.Println(err)
+			msg := tgbotapi.NewMessage(update.PreCheckoutQuery.From.ID, "*Счет устрарел*\nПовтори процесс выбора группы -> выбора подписки")
+			if _, err := bot.api.Send(msg); err != nil {
+				log.Println(err)
+			}
 		}
 		return
 	}
@@ -73,7 +78,14 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 
 		if update.Message.SuccessfulPayment != nil {
 			log.Println("SUCCSESSFULPAYMENT")
-			return
+			var p = update.Message.SuccessfulPayment
+			go func() {
+				err := bot.conn.UpdateSuccessfulPayment(p.InvoicePayload, p.ProviderPaymentChargeID, p.TelegramPaymentChargeID, true, false, time.Now())
+				if err != nil {
+					log.Println(err)
+				}
+			}()
+
 		}
 		var wg sync.WaitGroup
 
