@@ -48,8 +48,6 @@ func (bot *Bot) Start() {
 			defer func() { <-maxUpdates }()
 			bot.myUpdate(update)
 		}()
-		//// CHAT TYPE: “private”, “group”, “supergroup” or “channel”
-
 	}
 }
 
@@ -149,29 +147,43 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = bot.checkGroup(update)
+			err := bot.checkGroup(update)
+			if err != nil {
+				log.Println(err)
+			}
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = bot.checkUser(update)
+			err := bot.checkUser(update)
+			if err != nil {
+				log.Println(err)
+			}
 		}()
 
 		wg.Wait()
 
-		_ = bot.checkExistOfUserInGroup(update)
+		if err := bot.checkExistOfUserInGroup(update); err != nil {
+			log.Println(err)
+		}
 
 		switch update.Message.Chat.Type {
 		case "private":
-			_ = handlers.PrivateHandler(bot.api, bot.conn, update)
+			err := handlers.PrivateHandler(bot.api, bot.conn, update)
+			if err != nil {
+				log.Println(err)
+			}
 		case "group", "supergroup":
 			err := handlers.GroupHandler(bot.api, bot.conn, update)
 			if err != nil {
 				log.Println(err)
 			}
 		case "channel":
-			_ = handlers.ChannelHandler(bot.api, bot.conn, update)
+			err := handlers.ChannelHandler(bot.api, bot.conn, update)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 	if update.CallbackQuery != nil {
@@ -226,7 +238,9 @@ func (bot *Bot) checkUser(update tgbotapi.Update) error {
 		if !strings.Contains(err.Error(), "no rows in result") {
 			log.Println("GetUserData", err)
 		}
-
+		if update.Message.From.IsBot {
+			return nil
+		}
 		err = bot.conn.AddUser(userId)
 		if err != nil {
 			log.Println("AddUser", err)

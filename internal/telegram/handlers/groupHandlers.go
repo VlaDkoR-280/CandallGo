@@ -45,9 +45,16 @@ func (handler *Handler) newMember() error {
 			}
 			if userId == strconv.FormatInt(bot.ID, 10) {
 				err = handler.startCommand()
-				log.Println(err)
+				if err != nil {
+					log.Println(err)
+				}
 				return
 			}
+
+			if el.IsBot {
+				return
+			}
+
 			_, err = handler.conn.GetUserData(userId)
 			if err != nil {
 				if !strings.Contains(err.Error(), "no rows in result") {
@@ -81,6 +88,10 @@ func (handler *Handler) leftMember() error {
 	if strconv.FormatInt(bot.ID, 10) == userId {
 		err = handler.conn.RemoveLinkUsersWithGroup(groupId)
 		return err
+	}
+
+	if handler.update.Message.LeftChatMember.IsBot {
+		return nil
 	}
 
 	err = handler.conn.RemoveLinkUserWithGroup(userId, groupId)

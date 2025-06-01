@@ -22,6 +22,3 @@ func LoadConfig() Config {
 		DbUrl:    os.Getenv("database_url"),
 	}
 }
-func main() {
-
-}

@@ -46,7 +46,6 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, gro
 	default:
 		return payment.PaymentCallback(api, update, state, conn)
 	}
-	log.Println(state)
 	return err
 }
 
@@ -97,9 +96,6 @@ func (callData data) groupMsg() error {
 
 	if <-userIsInGroup {
 		return callData.generateMsgForGroupData(&groupData)
-		//msg := tgbotapi.NewMessage(callData.update.CallbackQuery.Message.Chat.ID, "Данные о группе: "+groupData.GroupName)
-		//_, err := callData.api.Send(msg)
-		//return err
 	} else {
 		msg := tgbotapi.NewMessage(callData.update.CallbackQuery.Message.Chat.ID, "Вы уже не принадлежите выбранной группе, проверьте в каких группах вы есть /group")
 		_, err = callData.api.Send(msg)
