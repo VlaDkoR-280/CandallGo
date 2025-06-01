@@ -304,6 +304,9 @@ func (myData *data) invoiceCallback() error {
 			},
 			IsFlexible:          false,
 			SuggestedTipAmounts: []int{},
+			PhotoURL:            "https://cdn4.cdn-telegram.org/file/X49EI542lmGGeZG-5HKbyozULKtQiO6UOM1_i3fmZ9hPBbdKe1nzUGZiTjma6aS6V977Pip15jWsJjRP9p60eEuQEYQX3xAuGbkM3DGe-6vHXvLV1UfdLCNPkT81gLIi756CsXY5XYmDPHiRxk2lLPbF3-0CLp5bddZgTbHzX000QnTNOIJCqB2cwpXybuUhvuo0O82QzOFYBiRLBPzSvPXIgLmqAaS2GOYGLOB8wULllIcsLS3uqo7vRTHQww0isyQRZZ1OXq_j2qdTDaUL_8_T_WNAlRh0uUlrTpsA7dpIjQY_GrqSVuhECHFRU__fha8HPBB7JB4Cudg-PzeT3Q.jpg",
+			PhotoWidth:          400,
+			PhotoHeight:         400,
 		}
 		res, err := myData.api.Send(invoice)
 		if err != nil {
