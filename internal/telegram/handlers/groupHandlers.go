@@ -132,9 +132,9 @@ func (handler *Handler) allCommand() error {
 	}()
 	go func() {
 		if groupData.SubDateEnd.After(time.Now()) {
-			canTag <- true
+			isSub <- true
 		} else {
-			canTag <- false
+			isSub <- false
 		}
 	}()
 	if err := handler.conn.GetUsersFromGroup(groupId, &userList); err != nil {
