@@ -363,7 +363,7 @@ func (myData *data) invoiceCallback() error {
 
 	go func() {
 
-		<-time.After(10 * time.Second)
+		<-time.After(10 * time.Minute)
 		is_paid, err := myData.conn.GetPaymentStatus(payload)
 		if err != nil {
 			log.Println("Error getting payment status:", err)
@@ -374,7 +374,7 @@ func (myData *data) invoiceCallback() error {
 			if _, err := myData.api.Request(deleteMsg); err != nil {
 				log.Println("Error deleting payment status:", err)
 			}
-			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Один из запросов на платежей был удален, на платеж дается 10 минут. Повторите попытку")
+			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Один из запросов на платежей был удален, на платеж дается 10 минут. Повторите попытку, если не пришло письмо об успешной оплате")
 			if _, err := myData.api.Send(msg); err != nil {
 			}
 		}
@@ -394,7 +394,7 @@ func (myData *data) invoiceCallback() error {
 	paymentData := myData.paymentState.Data
 	err := myData.conn.AddPayment(groupData.Id, userData.Id, paymentData.CurrencyId,
 		int(productData.Price), groupData.TgId, userData.TgId, productData.CurrencyName, payload,
-		productData.Description, productData.CurrencyName)
+		productData.Description, productData.CurrencyName, productData.ProductId)
 	if err != nil {
 		return err
 	}

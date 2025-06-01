@@ -78,11 +78,44 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 
 		if update.Message.SuccessfulPayment != nil {
 			log.Println("SUCCSESSFULPAYMENT")
+			var payload = update.Message.SuccessfulPayment.InvoicePayload
 			var p = update.Message.SuccessfulPayment
 			go func() {
 				err := bot.conn.UpdateSuccessfulPayment(p.InvoicePayload, p.ProviderPaymentChargeID, p.TelegramPaymentChargeID, true, false, time.Now())
 				if err != nil {
 					log.Println(err)
+				}
+			}()
+			go func() {
+
+				var subDays = make(chan int)
+				var cGroupId = make(chan string, 1)
+				go func() {
+					mProduct, err := bot.conn.GetProductData(payload)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+
+					subDays <- mProduct.DaysSubscribe
+				}()
+
+				go func() {
+					mPayment, err := bot.conn.GetPaymentDataFromInvoice(payload)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					cGroupId <- mPayment.GroupId
+				}()
+
+				var groupId = <-cGroupId
+				var timeSub = <-subDays
+				newTimeSub := time.Now().AddDate(0, 0, timeSub)
+				err := bot.conn.UpdateSubDate(groupId, newTimeSub)
+				if err != nil {
+					log.Println(err)
+					return
 				}
 			}()
 
