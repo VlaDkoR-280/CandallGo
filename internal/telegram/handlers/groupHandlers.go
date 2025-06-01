@@ -123,11 +123,6 @@ func (handler *Handler) allCommand() error {
 		dateUse := groupData.DateLastUse.Truncate(24 * time.Hour)
 		dateNow := time.Now().Truncate(24 * time.Hour)
 		if dateUse.Equal(dateNow) {
-			msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, "Сегодня вы уже использовали бота, попробуйте завтра или купите подписку.")
-			_, err := handler.api.Send(msg)
-			if err != nil {
-				log.Println(err)
-			}
 			canTag <- false
 		}
 		if err := handler.conn.UpdateGroupData(db.GroupData{DateLastUse: dateNow, TgId: groupId}); err != nil {
@@ -164,12 +159,14 @@ func (handler *Handler) allCommand() error {
 		tagText = tagText + addText
 	}
 
-	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, tagText)
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	if <-canTag || <-isSub {
-		if _, err := handler.api.Send(msg); err != nil {
-			return err
-		}
+		msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, tagText)
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, err := handler.api.Send(msg)
+		return err
 	}
-	return nil
+	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, "Сегодня вы уже использовали бота, попробуйте завтра или купите подписку.")
+	_, err = handler.api.Send(msg)
+	return err
+
 }
