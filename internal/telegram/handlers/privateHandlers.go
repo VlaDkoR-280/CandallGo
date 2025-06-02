@@ -5,6 +5,7 @@ import (
 	"CandallGo/internal/static"
 	"container/list"
 	"errors"
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"strconv"
 )
@@ -24,12 +25,26 @@ func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) e
 	}
 	switch update.Message.Command() {
 	case "start":
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Описание бота и команды /groups")
-		_, _ = api.Send(msg)
+		return handler.startPrivateCommand()
 	case "groups":
 		return handler.groupsHandler()
 	}
 	return nil
+}
+
+func (handler *Handler) startPrivateCommand() error {
+	text := fmt.Sprintf("Привет, я бот для тега участников в группе\\!\n" +
+		"Я работаю внутри групп с помощью команды /all\n" +
+		"Эту команду ты можешь использовать один раз в день\n\n" +
+		"Также ты можешь купить подписку для группы, для этого сначала выбери группу с помощью команды /groups " +
+		"после чего выбери способ оплаты и подписку:\n\n" +
+		"\\- *Подписка на неделю* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n" +
+		"\\- *Подписка на месяц* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n" +
+		"\\- *Подписка на неделю* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n")
+	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, err := handler.api.Send(msg)
+	return err
 }
 
 func (handler *Handler) groupsHandler() error {
