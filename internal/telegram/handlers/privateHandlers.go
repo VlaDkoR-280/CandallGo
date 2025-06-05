@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"CandallGo/internal/static"
 	"container/list"
 	"errors"
@@ -10,9 +11,9 @@ import (
 	"strconv"
 )
 
-func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) error {
+func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc *localization.Local) error {
 
-	var handler = Handler{api: api, conn: conn, update: update}
+	var handler = Handler{api: api, conn: conn, update: update, loc: loc}
 	if update.CallbackQuery != nil {
 		state, err := static.DecodeState(update.CallbackData())
 		if err != nil {
@@ -28,19 +29,19 @@ func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) e
 		return handler.startPrivateCommand()
 	case "groups":
 		return handler.groupsHandler()
+	case "subs":
+		text := fmt.Sprintf(loc.Get("ru", "subscribes_info"), "hello")
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, text)
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, err := handler.api.Send(msg)
+		return err
+
 	}
 	return nil
 }
 
 func (handler *Handler) startPrivateCommand() error {
-	text := fmt.Sprintf("Привет, я бот для тега участников в группе\\!\n" +
-		"Я работаю внутри групп с помощью команды /all\n" +
-		"Эту команду ты можешь использовать один раз в день\n\n" +
-		"Также ты можешь купить подписку для группы, для этого сначала выбери группу с помощью команды /groups " +
-		"после чего выбери способ оплаты и подписку:\n\n" +
-		"\\- *Подписка на неделю* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n" +
-		"\\- *Подписка на месяц* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n" +
-		"\\- *Подписка на неделю* \\- _предоставляет безлимитное использование бота в группе, для которой куплена подписка_\n\n")
+	text := handler.loc.Get("ru", "start")
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, err := handler.api.Send(msg)
@@ -64,8 +65,7 @@ func (handler *Handler) groupsHandler() error {
 		return err
 	}
 	if groups.Len() <= 0 {
-		msg := tgbotapi.NewMessage(mainChatId, "Я не знаю ни одной группы с вами, проверьте есть ли я в группе, даны ли мне права администротора"+
-			"писали ли вы в группе после того, как меня добавили")
+		msg := tgbotapi.NewMessage(mainChatId, handler.loc.Get("ru", "group_list_empty"))
 		_, err = handler.api.Send(msg)
 		return err
 	}
@@ -75,7 +75,7 @@ func (handler *Handler) groupsHandler() error {
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(tgbotapi.InlineKeyboardButton{
-		Text: "<< Назад", CallbackData: &deleteState,
+		Text: handler.loc.Get("ru", "button_back"), CallbackData: &deleteState,
 	}))
 
 	for el := groups.Front(); el != nil; el = el.Next() {
@@ -91,7 +91,7 @@ func (handler *Handler) groupsHandler() error {
 		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, keyRow)
 	}
 
-	msg := tgbotapi.NewMessage(mainChatId, "Выберите группу для просмотра информации о ней")
+	msg := tgbotapi.NewMessage(mainChatId, handler.loc.Get("ru", "groups_list"))
 	msg.ReplyMarkup = keyboard
 	_, err = handler.api.Send(msg)
 	return err

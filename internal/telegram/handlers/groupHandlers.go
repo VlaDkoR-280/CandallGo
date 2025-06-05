@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"container/list"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -11,8 +12,8 @@ import (
 	"time"
 )
 
-func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) error {
-	var handler = Handler{api: api, conn: conn, update: update}
+func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc *localization.Local) error {
+	var handler = Handler{api: api, conn: conn, update: update, loc: loc}
 	msg := update.Message
 	//userId := msg.From.ID
 	//chatId := msg.Chat.ID
@@ -100,13 +101,11 @@ func (handler *Handler) leftMember() error {
 }
 
 func (handler *Handler) startCommand() error {
-	text := "Я бот для тега всех участников в группе\n" +
-		"Можешь воспользовать этими командами\n" +
-		"/start - вывод основной информации о боте\n" +
-		"/all - тег всех участников"
+	text := handler.loc.Get("ru", "group_start")
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, text)
-	_, _ = handler.api.Send(msg)
-	return nil
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, err := handler.api.Send(msg)
+	return err
 }
 
 func (handler *Handler) allCommand() error {
@@ -165,7 +164,7 @@ func (handler *Handler) allCommand() error {
 		_, err := handler.api.Send(msg)
 		return err
 	}
-	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, "Сегодня вы уже использовали бота, попробуйте завтра или купите подписку.")
+	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
 	_, err = handler.api.Send(msg)
 	return err
 

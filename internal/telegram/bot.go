@@ -3,6 +3,7 @@ package telegram
 import (
 	"CandallGo/config"
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"CandallGo/internal/telegram/callbacks"
 	"CandallGo/internal/telegram/handlers"
 	"container/list"
@@ -17,6 +18,7 @@ import (
 type Bot struct {
 	api  *tgbotapi.BotAPI
 	conn *db.DB
+	loc  *localization.Local
 }
 
 func NewBot(token string) (*Bot, error) {
@@ -28,7 +30,12 @@ func NewBot(token string) (*Bot, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Bot{api: api, conn: conn}, nil
+	var loc localization.Local
+	err = loc.Update()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &Bot{api: api, conn: conn, loc: &loc}, nil
 }
 
 func (bot *Bot) Close() {
@@ -169,17 +176,17 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 
 		switch update.Message.Chat.Type {
 		case "private":
-			err := handlers.PrivateHandler(bot.api, bot.conn, update)
+			err := handlers.PrivateHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				log.Println(err)
 			}
 		case "group", "supergroup":
-			err := handlers.GroupHandler(bot.api, bot.conn, update)
+			err := handlers.GroupHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				log.Println(err)
 			}
 		case "channel":
-			err := handlers.ChannelHandler(bot.api, bot.conn, update)
+			err := handlers.ChannelHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				log.Println(err)
 			}
@@ -191,14 +198,14 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			return
 		}
 		// специальные исключения
-		if err := callbacks.MainCallback(bot.api, update, bot.conn, handlers.PrivateHandler); err != nil {
+		if err := callbacks.MainCallback(bot.api, update, bot.conn, handlers.PrivateHandler, bot.loc); err != nil {
 			log.Println(err)
 		}
 
 	}
 
 	if update.ChannelPost != nil && update.ChannelPost.Chat.Type == "channel" {
-		err := handlers.ChannelHandler(bot.api, bot.conn, update)
+		err := handlers.ChannelHandler(bot.api, bot.conn, update, bot.loc)
 		if err != nil {
 			log.Println(err)
 		}

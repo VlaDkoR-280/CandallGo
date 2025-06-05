@@ -2,6 +2,7 @@ package callbacks
 
 import (
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"CandallGo/internal/static"
 	"CandallGo/internal/telegram/payment"
 	"container/list"
@@ -18,9 +19,10 @@ type data struct {
 	update tgbotapi.Update
 	state  static.State
 	conn   *db.DB
+	loc    *localization.Local
 }
 
-func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, groupListCallback func(*tgbotapi.BotAPI, *db.DB, tgbotapi.Update) error) error {
+func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, groupListCallback func(*tgbotapi.BotAPI, *db.DB, tgbotapi.Update, *localization.Local) error, loc *localization.Local) error {
 	state, err := static.DecodeState(update.CallbackData())
 	if err != nil {
 		return err
@@ -30,13 +32,14 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, gro
 		update: update,
 		conn:   conn,
 		state:  state,
+		loc:    loc,
 	}
 	switch state.Action {
 	case "delete":
 		err = callData.deleteMsg()
 	case "groups":
 		err = callData.deleteMsg()
-		return groupListCallback(api, conn, update)
+		return groupListCallback(api, conn, update, loc)
 	case "group":
 		err = callData.groupMsg()
 		if err != nil {
@@ -44,7 +47,7 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, gro
 		}
 		err = callData.deleteMsg()
 	default:
-		return payment.PaymentCallback(api, update, state, conn)
+		return payment.PaymentCallback(api, update, state, conn, loc)
 	}
 	return err
 }
@@ -97,7 +100,7 @@ func (callData data) groupMsg() error {
 	if <-userIsInGroup {
 		return callData.generateMsgForGroupData(&groupData)
 	} else {
-		msg := tgbotapi.NewMessage(callData.update.CallbackQuery.Message.Chat.ID, "Вы уже не принадлежите выбранной группе, проверьте в каких группах вы есть /group")
+		msg := tgbotapi.NewMessage(callData.update.CallbackQuery.Message.Chat.ID, callData.loc.Get("ru", "post_group_empty"))
 		_, err = callData.api.Send(msg)
 		return err
 	}
@@ -109,12 +112,11 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 	var isSub = groupData.SubDateEnd.Truncate(24 * time.Hour).After(time.Now().Truncate(24 * time.Hour))
 	var statusSub string
 	if isSub {
-		statusSub = "Active"
+		statusSub = groupData.SubDateEnd.Truncate(24 * time.Hour).Format("02-01-2006")
 	} else {
-		statusSub = "Inactive"
+		statusSub = "\\-"
 	}
-	str := fmt.Sprintf("*Название группы*: %s\n"+
-		"*Подписка*: %s\n", groupData.GroupName, statusSub)
+	str := fmt.Sprintf(callData.loc.Get("ru", "group_info_text"), groupData.GroupName, statusSub)
 	msg := tgbotapi.NewMessage(callData.update.CallbackQuery.Message.Chat.ID, str)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 
@@ -126,7 +128,7 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.InlineKeyboardButton{
-				Text: "К списку групп", CallbackData: &callbackDataBack,
+				Text: callData.loc.Get("ru", "button_back"), CallbackData: &callbackDataBack,
 			}))
 
 	//refundCallback, err := static.EncodeState(
@@ -152,7 +154,7 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.InlineKeyboardButton{
-					Text: "Подписки", CallbackData: &subCallback,
+					Text: callData.loc.Get("ru", "group_info_button_sub"), CallbackData: &subCallback,
 				}))
 	}
 	msg.ReplyMarkup = keyboard

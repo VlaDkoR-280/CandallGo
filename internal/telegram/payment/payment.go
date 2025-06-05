@@ -2,6 +2,7 @@ package payment
 
 import (
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"CandallGo/internal/static"
 	"container/list"
 	"errors"
@@ -26,14 +27,16 @@ type data struct {
 	conn         *db.DB
 	state        static.State
 	paymentState *static.PaymentState
+	loc          *localization.Local
 }
 
-func PaymentCallback(bot *tgbotapi.BotAPI, update tgbotapi.Update, state static.State, conn *db.DB) error {
+func PaymentCallback(bot *tgbotapi.BotAPI, update tgbotapi.Update, state static.State, conn *db.DB, loc *localization.Local) error {
 	myData := &data{
 		api:    bot,
 		update: update,
 		conn:   conn,
 		state:  state,
+		loc:    loc,
 	}
 	if err := myData.deleteMsg(); err != nil {
 		return err
@@ -84,7 +87,7 @@ func (myData *data) paymentMethods() error {
 		return err
 	}
 	if currencies.Len() <= 0 {
-		msg := tgbotapi.NewMessage(myData.update.Message.Chat.ID, "На данный момент нет доступных способов оплаты, попробуйте позже!")
+		msg := tgbotapi.NewMessage(myData.update.Message.Chat.ID, myData.loc.Get("ru", "currency_empty"))
 		_, err := myData.api.Send(msg)
 		return err
 	}
@@ -96,12 +99,20 @@ func (myData *data) paymentMethods() error {
 	}
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.InlineKeyboardButton{Text: "Назад", CallbackData: &callbackBack}))
+			tgbotapi.InlineKeyboardButton{Text: myData.loc.Get("ru", "button_back"), CallbackData: &callbackBack}))
 
 	for el := currencies.Front(); el != nil; el = el.Next() {
 		var cur = el.Value.(db.Currency)
 		if cur.Name != "" {
 			groupId := myData.state.Data
+
+			var curName string
+			switch cur.Name {
+			case "RUB":
+				curName = "🇷🇺₽"
+			case "XTR":
+				curName = "⭐"
+			}
 
 			curCallback, err := static.EncodePayment(
 				static.PaymentState{Action: "sub_options", Data: db.PaymentData{GroupId: groupId, ProductId: -1, CurrencyId: cur.Id}})
@@ -111,13 +122,13 @@ func (myData *data) paymentMethods() error {
 			keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.InlineKeyboardButton{
-						Text: cur.Name, CallbackData: &curCallback,
+						Text: curName, CallbackData: &curCallback,
 					}))
 		}
 	}
 
 	msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID,
-		"Выберите валюту в оплате\n *Варианты подписки*")
+		myData.loc.Get("ru", "currency_choose"))
 	msg.ReplyMarkup = keyboard
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, err = myData.api.Send(msg)
@@ -159,7 +170,7 @@ func (myData *data) purchaseCallback() error {
 		return err
 	}
 
-	msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Выберите подписку")
+	msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "subscribe_buy"))
 	var productList list.List
 	if err := myData.conn.GetPrices(&productList); err != nil {
 		return err
@@ -169,7 +180,7 @@ func (myData *data) purchaseCallback() error {
 
 	}
 	if productList.Len() <= 0 {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "На данный момент нет доступных способов оплаты, попробуйте позже")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "subscribe_empty"))
 		if _, err := myData.api.Send(msg); err != nil {
 			return err
 		}
@@ -183,7 +194,7 @@ func (myData *data) purchaseCallback() error {
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.InlineKeyboardButton{
-				Text: "К выбору валюты", CallbackData: &currencyCallback,
+				Text: myData.loc.Get("ru", "button_back"), CallbackData: &currencyCallback,
 			}))
 
 	curId := myData.paymentState.Data.CurrencyId
@@ -200,19 +211,30 @@ func (myData *data) purchaseCallback() error {
 		if err != nil {
 			return err
 		}
+
 		var productText string
-		if product.CurrencyName != "XTR" {
-			productText = fmt.Sprintf("%d : %s", product.Price/100, product.Name)
-		} else {
-			productText = fmt.Sprintf("%d : %s", product.Price, product.Name)
+		var curName string
+		var curPrice int64
+		switch product.CurrencyName {
+		case "XTR":
+			curName = "⭐"
+			curPrice = product.Price
+		case "RUB":
+			curName = "₽"
+			curPrice = product.Price / 100
+		default:
+			curName = product.CurrencyName
+			curPrice = product.Price / 100
 		}
+
+		productText = fmt.Sprintf(myData.loc.Get("ru", "subscribe_button_text"), product.Name, curPrice, curName)
 
 		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.InlineKeyboardButton{Text: productText, CallbackData: &buttonCallback}))
 	}
 	if count <= 0 {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Нет доступных методов оплаты")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "subscribe_empty"))
 		_, err := myData.api.Send(msg)
 		return err
 	}
@@ -250,14 +272,14 @@ func (myData *data) fullCheck() error {
 	}()
 
 	if !<-isValidate {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Похоже вы уже не состоите в группе")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "post_group_empty"))
 		if _, err := myData.api.Send(msg); err != nil {
 			return err
 		}
 		return errors.New("Havent Permission")
 	}
 	if <-isSub {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Уже оформлена подписка")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "subscribe_already"))
 		if _, err := myData.api.Send(msg); err != nil {
 			return err
 		}
@@ -359,7 +381,7 @@ func (myData *data) invoiceCallback() error {
 	}()
 
 	if !<-sendInvoice {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Ошибка отправки формы для оплаты, попробуйте позже")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "error_send_invoice"))
 		_, err := myData.api.Send(msg)
 		return err
 	}
@@ -377,8 +399,9 @@ func (myData *data) invoiceCallback() error {
 			if _, err := myData.api.Request(deleteMsg); err != nil {
 				log.Println("Error deleting payment status:", err)
 			}
-			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Один из запросов на платежей был удален, на платеж дается 10 минут. Повторите попытку, если не пришло письмо об успешной оплате")
+			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "invoice_timeout"))
 			if _, err := myData.api.Send(msg); err != nil {
+				log.Println("Error sending payment status:", err)
 			}
 		}
 
@@ -389,7 +412,7 @@ func (myData *data) invoiceCallback() error {
 	productData := <-chanProductList
 
 	if userData == nil || groupData == nil || productData == nil {
-		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, "Ошибка записи платежа, попробуйте позже")
+		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "error_send_invoice"))
 		_, err := myData.api.Send(msg)
 		return err
 	}
@@ -401,6 +424,5 @@ func (myData *data) invoiceCallback() error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

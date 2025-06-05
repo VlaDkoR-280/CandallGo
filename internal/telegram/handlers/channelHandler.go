@@ -3,6 +3,7 @@ package handlers
 import (
 	"CandallGo/config"
 	"CandallGo/internal/db"
+	"CandallGo/internal/localization"
 	"container/list"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
@@ -10,10 +11,10 @@ import (
 	"strings"
 )
 
-func ChannelHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update) error {
+func ChannelHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc *localization.Local) error {
 	if update.ChannelPost != nil && update.ChannelPost.Chat.ID == config.LoadConfig().ChannelId {
 		handler := Handler{
-			api: api, conn: conn, update: update,
+			api: api, conn: conn, update: update, loc: loc,
 		}
 
 		return handler.channelForward()
