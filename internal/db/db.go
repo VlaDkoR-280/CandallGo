@@ -90,3 +90,21 @@ func (db *DB) GetUsersFromGroup(groupId string, userList *list.List) error {
 	}
 	return nil
 }
+
+func (db *DB) GetAllGroups(groups *list.List) error {
+	rows, err := db.conn.Query(context.Background(),
+		"SELECT id, tg_id, name, isgroup, date_last_use, sub_end_date, time_last_update FROM group_data")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var group GroupData
+		err := rows.Scan(&group.Id, &group.TgId, &group.GroupName, &group.IsGroup, &group.DateLastUse, &group.SubDateEnd, &group.TimeLastUpdate)
+		if err != nil {
+			return err
+		}
+		groups.PushBack(group)
+	}
+	return nil
+}

@@ -197,6 +197,13 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 
 	}
 
+	if update.ChannelPost != nil && update.ChannelPost.Chat.Type == "channel" {
+		err := handlers.ChannelHandler(bot.api, bot.conn, update)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
 }
 
 func (bot *Bot) checkGroup(update tgbotapi.Update) error {
