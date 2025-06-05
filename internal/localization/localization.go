@@ -10,7 +10,7 @@ type Local struct {
 }
 
 func (l *Local) Update() error {
-	data, err := os.ReadFile("internal/localization/loc.yaml")
+	data, err := os.ReadFile("loc.yaml")
 	if err != nil {
 		return err
 	}
