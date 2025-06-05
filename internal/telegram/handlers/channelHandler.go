@@ -6,7 +6,6 @@ import (
 	"CandallGo/internal/localization"
 	"container/list"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -50,7 +49,7 @@ func (h *Handler) channelForward() error {
 				}
 				forward := tgbotapi.NewForward(int64(chatId), channelPost.Chat.ID, channelPost.MessageID)
 				if _, err := h.api.Send(forward); err != nil {
-					log.Println(err)
+					return
 				}
 			}()
 		}
