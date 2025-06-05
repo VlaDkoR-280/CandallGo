@@ -112,7 +112,7 @@ func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
 	var isSub = groupData.SubDateEnd.Truncate(24 * time.Hour).After(time.Now().Truncate(24 * time.Hour))
 	var statusSub string
 	if isSub {
-		statusSub = groupData.SubDateEnd.Truncate(24 * time.Hour).Format("02-01-2006")
+		statusSub = groupData.SubDateEnd.Truncate(24 * time.Hour).Format("02\\-01\\-2006")
 	} else {
 		statusSub = "\\-"
 	}
