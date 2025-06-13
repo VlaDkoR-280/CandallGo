@@ -3,16 +3,19 @@ package main
 import (
 	"CandallGo/config"
 	"CandallGo/internal/telegram"
-	"log"
+	"CandallGo/logs"
 )
 
 func main() {
 	cfg := config.LoadConfig()
 	bot, err := telegram.NewBot(cfg.BotToken)
 	if err != nil {
-		log.Fatal("Bot connect Error", err)
+		logs.SendLog("error", err.Error())
+		return
+		//log.Fatal("Bot connect Error", err)
 	}
 	defer bot.Close()
+	logs.SendLog("info", "bot has been started")
 	bot.Start()
 
 }

@@ -11,6 +11,7 @@ type Config struct {
 	BotToken  string
 	DbUrl     string
 	ChannelId int64
+	LogUrl    string
 }
 
 func LoadConfig() Config {
@@ -26,5 +27,6 @@ func LoadConfig() Config {
 		BotToken:  os.Getenv("BotToken"),
 		DbUrl:     os.Getenv("database_url"),
 		ChannelId: chId,
+		LogUrl:    os.Getenv("log_url"),
 	}
 }
