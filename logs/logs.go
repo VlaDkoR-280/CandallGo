@@ -28,6 +28,5 @@ func SendLog(level, msg string) {
 	}
 	defer conn.Close()
 	data, _ := json.Marshal(entry)
-	_, _ = conn.Write(data)
-	_, _ = conn.Write([]byte("\n"))
+	_, _ = conn.Write(append(data, '\n'))
 }
