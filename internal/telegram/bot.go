@@ -6,9 +6,11 @@ import (
 	"CandallGo/internal/localization"
 	"CandallGo/internal/telegram/callbacks"
 	"CandallGo/internal/telegram/handlers"
+	"CandallGo/logs"
 	"container/list"
+	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,12 +30,22 @@ func NewBot(token string) (*Bot, error) {
 	}
 	conn, err := db.Connect(config.LoadConfig().DbUrl)
 	if err != nil {
-		log.Fatal(err)
+		logs.SendLog(logs.LogEntry{
+			Level:     "fatal",
+			EventType: "data_base",
+			Error:     err.Error(),
+		})
+		os.Exit(1)
 	}
 	var loc localization.Local
 	err = loc.Update()
 	if err != nil {
-		log.Fatal(err)
+		logs.SendLog(logs.LogEntry{
+			Level:     "fatal",
+			EventType: "system",
+			Error:     err.Error(),
+		})
+		os.Exit(1)
 	}
 	return &Bot{api: api, conn: conn, loc: &loc}, nil
 }
@@ -66,53 +78,64 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 		}
 		_, err := bot.api.Request(answer)
 		if err != nil {
-			log.Println(err)
+			logs.SendLog(logs.LogEntry{
+				Level:          "error",
+				EventType:      "payment_invoice",
+				Error:          err.Error(),
+				InvoicePayload: update.PreCheckoutQuery.InvoicePayload,
+				TgUserID:       strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+			})
 			msg := tgbotapi.NewMessage(update.PreCheckoutQuery.From.ID, "*Счет устрарел*\nПовтори процесс выбора группы -> выбора подписки")
 			if _, err := bot.api.Send(msg); err != nil {
-				log.Println(err)
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "system",
+					Error:     err.Error(),
+					TgUserID:  strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+				})
 			}
 		}
+		logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "payment_invoice",
+			Msg:       "Successful send PreCheckoutQuery",
+			TgUserID:  strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+		})
 		return
 	}
 
-	// Удаление бота
-	//if update.MyChatMember != nil {
-	//	newStatus := update.MyChatMember.NewChatMember.Status
-	//
-	//	switch newStatus {
-	//	case "member", "administration":
-	//		msg := tgbotapi.NewMessage(update.MyChatMember.Chat.ID,
-	//			"Привет, я бот для тега всех участников в группе. Пожалуйста, выдай мне права администратора, иначе я не смогу видеть участников группы")
-	//		if _, err := bot.api.Send(msg); err != nil {
-	//			log.Println(err)
-	//		}
-	//	case "left", "kicked":
-	//		err := bot.conn.RemoveLinkUsersWithGroup(strconv.FormatInt(update.MyChatMember.Chat.ID, 10))
-	//		if err != nil {
-	//			log.Println(err)
-	//		}
-	//	}
-	//	return
-	//}
-
 	if update.Message != nil {
-		//if update.Message.NewChatMembers != nil {
-		//	return
-		//}
+
 		if update.Message.From.IsBot {
-			log.Printf("MSG_FROM_BOT <%s|%s>: %s", update.Message.From.LastName, update.Message.From.ID, update.Message.Text)
+			logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "bot_send_message",
+				Msg:       update.Message.Text,
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+			})
 			return
 		}
 
 		if update.Message.SuccessfulPayment != nil {
-			log.Println("SUCCSESSFULPAYMENT")
 			var payload = update.Message.SuccessfulPayment.InvoicePayload
 			var p = update.Message.SuccessfulPayment
 			go func() {
 				err := bot.conn.UpdateSuccessfulPayment(p.InvoicePayload, p.ProviderPaymentChargeID, p.TelegramPaymentChargeID, true, false, time.Now())
 				if err != nil {
-					log.Println(err)
+					logs.SendLog(logs.LogEntry{
+						Level:     "error",
+						EventType: "data_base",
+						TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+						Error:     fmt.Sprintf("%s\n%s", "Error Update SuccessfulPayment", err.Error()),
+					})
+					return
 				}
+				logs.SendLog(logs.LogEntry{
+					Level:     "info",
+					EventType: "data_base",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					Info:      "Update SuccessfulPayment",
+				})
 			}()
 			go func() {
 				var subDays = make(chan int)
@@ -120,19 +143,40 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				go func() {
 					mProduct, err := bot.conn.GetProductData(payload)
 					if err != nil {
-						log.Println(err)
+						logs.SendLog(logs.LogEntry{
+							Level:     "error",
+							EventType: "data_base",
+							TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+							Error:     fmt.Sprintf("%s\n%s", "Error GetProductData", err.Error()),
+						})
 						return
 					}
-
+					logs.SendLog(logs.LogEntry{
+						Level:     "info",
+						EventType: "data_base",
+						TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+						Info:      "GetProductData",
+					})
 					subDays <- mProduct.DaysSubscribe
 				}()
 
 				go func() {
 					mPayment, err := bot.conn.GetPaymentDataFromInvoice(payload)
 					if err != nil {
-						log.Println(err)
+						logs.SendLog(logs.LogEntry{
+							Level:     "error",
+							EventType: "data_base",
+							TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+							Error:     fmt.Sprintf("%s\n%s", "Error GetPaymentDataFromInvoice", err.Error()),
+						})
 						return
 					}
+					go logs.SendLog(logs.LogEntry{
+						Level:     "info",
+						EventType: "data_base",
+						TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+						Info:      "GetPaymentDataFromInvoice",
+					})
 					cGroupId <- mPayment.GroupId
 				}()
 
@@ -141,9 +185,20 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				newTimeSub := time.Now().AddDate(0, 0, timeSub)
 				err := bot.conn.UpdateSubDate(groupId, newTimeSub)
 				if err != nil {
-					log.Println(err)
+					logs.SendLog(logs.LogEntry{
+						Level:     "error",
+						EventType: "data_base",
+						TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+						Error:     fmt.Sprintf("%s\n%s", "Error UpdateSubDate", err.Error()),
+					})
 					return
 				}
+				logs.SendLog(logs.LogEntry{
+					Level:     "info",
+					EventType: "data_base",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					Info:      "UpdateSubDate",
+				})
 			}()
 
 		}
@@ -155,8 +210,22 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			defer wg.Done()
 			err := bot.checkGroup(update)
 			if err != nil {
-				log.Println(err)
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error checkGroup", err.Error()),
+				})
+				return
 			}
+			logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "telegram",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+				Info:      "checkGroup",
+			})
 		}()
 
 		wg.Add(1)
@@ -164,42 +233,104 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			defer wg.Done()
 			err := bot.checkUser(update)
 			if err != nil {
-				log.Println(err)
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error checkUser", err.Error()),
+				})
+				return
 			}
+			logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "telegram",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+				Info:      "checkUser",
+			})
 		}()
 
 		wg.Wait()
 
 		if err := bot.checkExistOfUserInGroup(update); err != nil {
-			log.Println(err)
+			go logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "telegram",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error checkExistOfUserInGroup", err.Error()),
+			})
+			return
 		}
+		go logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "telegram",
+			TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+			TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+			Info:      "checkExistOfUserInGroup",
+		})
 
 		switch update.Message.Chat.Type {
 		case "private":
 			err := handlers.PrivateHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
-				log.Println(err)
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram_private_handler",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     err.Error(),
+				})
+				return
 			}
 		case "group", "supergroup":
 			err := handlers.GroupHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
-				log.Println(err)
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram_group_handler",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     err.Error(),
+				})
+				return
 			}
 		case "channel":
 			err := handlers.ChannelHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
-				log.Println(err)
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram_channel_handler",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     err.Error(),
+				})
+				return
 			}
 		}
 	}
 	if update.CallbackQuery != nil {
 		if update.CallbackQuery.From.IsBot {
-			log.Printf("MSG_FROM_BOT <%s|%s>: %s", update.CallbackQuery.From.LastName, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
+			logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "bot_callback",
+				Msg:       update.CallbackQuery.Data,
+				TgUserID:  strconv.FormatInt(update.CallbackQuery.From.ID, 10),
+			})
 			return
 		}
 		// специальные исключения
 		if err := callbacks.MainCallback(bot.api, update, bot.conn, handlers.PrivateHandler, bot.loc); err != nil {
-			log.Println(err)
+			go logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "user_callback",
+				Msg:       update.CallbackQuery.Data,
+				TgUserID:  strconv.FormatInt(update.CallbackQuery.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(update.CallbackQuery.Message.Chat.ID, 10),
+				Error:     err.Error(),
+			})
+			return
 		}
 
 	}
@@ -207,7 +338,14 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 	if update.ChannelPost != nil && update.ChannelPost.Chat.Type == "channel" {
 		err := handlers.ChannelHandler(bot.api, bot.conn, update, bot.loc)
 		if err != nil {
-			log.Println(err)
+			go logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "channel_post",
+				TgPostId:  strconv.FormatInt(int64(update.ChannelPost.MessageID), 10),
+				TgGroupID: strconv.FormatInt(update.ChannelPost.Chat.ID, 10),
+				Error:     err.Error(),
+			})
+			return
 		}
 	}
 
@@ -227,7 +365,12 @@ func (bot *Bot) checkGroup(update tgbotapi.Update) error {
 
 		err = bot.conn.AddGroup(groupData.TgId, groupData.GroupName, groupData.IsGroup)
 		if err != nil {
-			log.Println("AddGroup", err)
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "data_base",
+				TgGroupID: groupData.TgId,
+				Info:      "AddGroup",
+			})
 		}
 		return nil
 	}
@@ -249,16 +392,18 @@ func (bot *Bot) checkUser(update tgbotapi.Update) error {
 	_, err := bot.conn.GetUserData(userId)
 	if err != nil {
 		if !strings.Contains(err.Error(), "no rows in result") {
-			log.Println("GetUserData", err)
-		}
-		if update.Message.From.IsBot {
-			return nil
+			return err
 		}
 		err = bot.conn.AddUser(userId)
 		if err != nil {
-			log.Println("AddUser", err)
+			return err
 		}
-
+		go logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "data_base",
+			TgUserID:  userId,
+			Info:      "AddUser",
+		})
 		return nil
 	}
 	return nil
@@ -268,8 +413,10 @@ func (bot *Bot) checkExistOfUserInGroup(update tgbotapi.Update) error {
 	var userId = strconv.FormatInt(update.Message.From.ID, 10)
 	var chatId = strconv.FormatInt(update.Message.Chat.ID, 10)
 	var users list.List
-	_ = bot.conn.GetUsersFromGroup(chatId, &users)
-
+	err := bot.conn.GetUsersFromGroup(chatId, &users)
+	if err != nil {
+		return err
+	}
 	var isExist = false
 
 	for user := users.Front(); user != nil; user = user.Next() {
@@ -280,7 +427,17 @@ func (bot *Bot) checkExistOfUserInGroup(update tgbotapi.Update) error {
 	}
 
 	if !isExist {
-		_ = bot.conn.AddUserToGroup(userId, chatId)
+		err = bot.conn.AddUserToGroup(userId, chatId)
+		if err != nil {
+			return err
+		}
+		go logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "data_base",
+			TgUserID:  userId,
+			TgGroupID: chatId,
+			Info:      "AddUserToGroup",
+		})
 	}
 	return nil
 }

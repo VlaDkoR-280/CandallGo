@@ -10,12 +10,14 @@ func main() {
 	cfg := config.LoadConfig()
 	bot, err := telegram.NewBot(cfg.BotToken)
 	if err != nil {
-		logs.SendLog("error", err.Error())
+		logs.SendLog(logs.LogEntry{Level: "fatal", EventType: "system", Msg: "Error creating bot", Error: err.Error()})
 		return
-		//log.Fatal("Bot connect Error", err)
 	}
 	defer bot.Close()
-	logs.SendLog("info", "bot has been started")
+	logs.SendLog(logs.LogEntry{
+		Level: "info", EventType: "system",
+		Msg: "Bot started",
+	})
 	bot.Start()
 
 }

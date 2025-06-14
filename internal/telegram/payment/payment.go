@@ -4,12 +4,12 @@ import (
 	"CandallGo/internal/db"
 	"CandallGo/internal/localization"
 	"CandallGo/internal/static"
+	"CandallGo/logs"
 	"container/list"
 	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
-	"log"
 	"strconv"
 	"time"
 )
@@ -176,9 +176,6 @@ func (myData *data) purchaseCallback() error {
 		return err
 	}
 
-	for el := productList.Front(); el != nil; el = el.Next() {
-
-	}
 	if productList.Len() <= 0 {
 		msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "subscribe_empty"))
 		if _, err := myData.api.Send(msg); err != nil {
@@ -250,7 +247,13 @@ func (myData *data) fullCheck() error {
 	go func() {
 		isExist, err := myData.checkUserInGroup()
 		if err != nil {
-			log.Println("Error checkUserInGroup:", err)
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "user_callback",
+				TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error Checking User", err.Error()),
+			})
 			isValidate <- false
 			close(isValidate)
 			return
@@ -262,7 +265,13 @@ func (myData *data) fullCheck() error {
 	go func() {
 		isSubscribe, err := myData.checkSubscribe()
 		if err != nil {
-			log.Println("Error checkSubscribe:", err)
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "user_callback",
+				TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error Checking Subscribe", err.Error()),
+			})
 			isSub <- false
 			close(isSub)
 			return
@@ -332,7 +341,13 @@ func (myData *data) invoiceCallback() error {
 		}
 		res, err := myData.api.Send(invoice)
 		if err != nil {
-			log.Println("Error sending invoice:", err)
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "payment",
+				TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error sending invoice", err.Error()),
+			})
 			sendInvoice <- false
 			return
 		}
@@ -391,17 +406,35 @@ func (myData *data) invoiceCallback() error {
 		<-time.After(10 * time.Minute)
 		is_paid, err := myData.conn.GetPaymentStatus(payload)
 		if err != nil {
-			log.Println("Error getting payment status:", err)
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "data_base",
+				TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+				TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error getting payment status", err.Error()),
+			})
 			return
 		}
 		if !is_paid {
 			deleteMsg := tgbotapi.NewDeleteMessage(invoiceMessage.Chat.ID, invoiceMessage.MessageID)
 			if _, err := myData.api.Request(deleteMsg); err != nil {
-				log.Println("Error deleting payment status:", err)
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram",
+					TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error deleting payment status", err.Error()),
+				})
 			}
 			msg := tgbotapi.NewMessage(myData.update.CallbackQuery.Message.Chat.ID, myData.loc.Get("ru", "invoice_timeout"))
 			if _, err := myData.api.Send(msg); err != nil {
-				log.Println("Error sending payment status:", err)
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram",
+					TgUserID:  strconv.FormatInt(myData.update.CallbackQuery.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(myData.update.CallbackQuery.Message.Chat.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error sending payment status", err.Error()),
+				})
 			}
 		}
 

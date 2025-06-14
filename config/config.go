@@ -1,8 +1,9 @@
 package config
 
 import (
+	"CandallGo/logs"
+	"fmt"
 	"github.com/joho/godotenv"
-	"log"
 	"os"
 	"strconv"
 )
@@ -17,11 +18,20 @@ type Config struct {
 func LoadConfig() Config {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		logs.SendLog(logs.LogEntry{
+			Level:     "error",
+			EventType: "system",
+			Error:     fmt.Sprintf("%s\n%s", "Error loading .env file", err.Error()),
+		})
+		os.Exit(1)
 	}
 	chId, err := strconv.ParseInt(os.Getenv("main_channel_id"), 10, 64)
 	if err != nil {
-		log.Println(err)
+		logs.SendLog(logs.LogEntry{
+			Level:     "error",
+			EventType: "system",
+			Error:     fmt.Sprintf("%s\n%s", "Error parse main_channel_id", err.Error()),
+		})
 	}
 	return Config{
 		BotToken:  os.Getenv("BotToken"),

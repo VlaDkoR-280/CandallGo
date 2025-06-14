@@ -3,10 +3,10 @@ package handlers
 import (
 	"CandallGo/internal/db"
 	"CandallGo/internal/localization"
+	"CandallGo/logs"
 	"container/list"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -42,13 +42,25 @@ func (handler *Handler) newMember() error {
 			var groupId = strconv.FormatInt(handler.update.Message.Chat.ID, 10)
 			bot, err := handler.api.GetMe()
 			if err != nil {
-				log.Println(err)
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "telegram",
+					Info:      fmt.Sprintf("%s\n%s", "Error api GetMe", err.Error()),
+					TgUserID:  userId,
+					TgGroupID: groupId,
+				})
 				return
 			}
 			if userId == strconv.FormatInt(bot.ID, 10) {
 				err = handler.startCommand()
 				if err != nil {
-					log.Println(err)
+					go logs.SendLog(logs.LogEntry{
+						Level:     "error",
+						EventType: "telegram",
+						Info:      fmt.Sprintf("%s\n%s", "Error api startCommand", err.Error()),
+						TgUserID:  userId,
+						TgGroupID: groupId,
+					})
 				}
 				return
 			}
@@ -60,18 +72,44 @@ func (handler *Handler) newMember() error {
 			_, err = handler.conn.GetUserData(userId)
 			if err != nil {
 				if !strings.Contains(err.Error(), "no rows in result") {
-					log.Println("GetUserData", err)
+					go logs.SendLog(logs.LogEntry{
+						Level:     "error",
+						EventType: "data_base",
+						Info:      fmt.Sprintf("%s\n%s", "Error GetUserData", err.Error()),
+						TgUserID:  userId,
+						TgGroupID: groupId,
+					})
+					return
 				}
 
 				err = handler.conn.AddUser(userId)
 				if err != nil {
-					log.Println("AddUser", err)
+					go logs.SendLog(logs.LogEntry{
+						Level:     "error",
+						EventType: "data_base",
+						Info:      fmt.Sprintf("%s\n%s", "Error GetUserData", err.Error()),
+						TgUserID:  userId,
+						TgGroupID: groupId,
+					})
 				}
 			}
 			err = handler.conn.AddUserToGroup(userId, groupId)
 			if err != nil {
-				log.Println("AddUserToGroup", err)
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "data_base",
+					Info:      fmt.Sprintf("%s\n%s", "Error AddUserToGroup", err.Error()),
+					TgUserID:  userId,
+					TgGroupID: groupId,
+				})
 			}
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "data_base",
+				Info:      "AddUserToGroup",
+				TgUserID:  userId,
+				TgGroupID: groupId,
+			})
 		}()
 
 	}
@@ -97,6 +135,15 @@ func (handler *Handler) leftMember() error {
 	}
 
 	err = handler.conn.RemoveLinkUserWithGroup(userId, groupId)
+	if err == nil {
+		go logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "data_base",
+			Info:      "RemoveLinkUserWithGroup",
+			TgUserID:  userId,
+			TgGroupID: groupId,
+		})
+	}
 	return err
 }
 
@@ -125,7 +172,14 @@ func (handler *Handler) allCommand() error {
 			canTag <- false
 		}
 		if err := handler.conn.UpdateGroupData(db.GroupData{DateLastUse: dateNow, TgId: groupId}); err != nil {
-			log.Println(err)
+			go logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "data_base",
+				Info:      "UpdateGroupData",
+				TgGroupID: groupId,
+			})
+			canTag <- false
+			return
 		}
 		canTag <- true
 	}()
@@ -166,6 +220,15 @@ func (handler *Handler) allCommand() error {
 	}
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
 	_, err = handler.api.Send(msg)
+	if err == nil {
+		go logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "user_action",
+			Info:      "AllCommand",
+			TgGroupID: groupId,
+			TgUserID:  strconv.FormatInt(handler.update.Message.From.ID, 10),
+		})
+	}
 	return err
 
 }

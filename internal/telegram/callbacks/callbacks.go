@@ -5,11 +5,11 @@ import (
 	"CandallGo/internal/localization"
 	"CandallGo/internal/static"
 	"CandallGo/internal/telegram/payment"
+	"CandallGo/logs"
 	"container/list"
 	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
 	"strconv"
 	"time"
 )
@@ -39,15 +39,42 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, gro
 		err = callData.deleteMsg()
 	case "groups":
 		err = callData.deleteMsg()
-		return groupListCallback(api, conn, update, loc)
+		err = groupListCallback(api, conn, update, loc)
+		if err == nil {
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "user_callback",
+				TgUserID:  strconv.FormatInt(callData.update.CallbackQuery.From.ID, 10),
+				Msg:       callData.update.CallbackQuery.Data,
+				Info:      "To groupListCallback",
+			})
+		}
 	case "group":
-		err = callData.groupMsg()
+		err = callData.deleteMsg()
 		if err != nil {
 			return err
 		}
-		err = callData.deleteMsg()
+		err = callData.groupMsg()
+		if err == nil {
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "user_callback",
+				TgUserID:  strconv.FormatInt(callData.update.CallbackQuery.From.ID, 10),
+				Msg:       callData.update.CallbackQuery.Data,
+				Info:      "To groupMsg",
+			})
+		}
 	default:
-		return payment.PaymentCallback(api, update, state, conn, loc)
+		err = payment.PaymentCallback(api, update, state, conn, loc)
+		if err == nil {
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "user_callback",
+				TgUserID:  strconv.FormatInt(callData.update.CallbackQuery.From.ID, 10),
+				Msg:       callData.update.CallbackQuery.Data,
+				Info:      "To PaymentCallback",
+			})
+		}
 	}
 	return err
 }
@@ -75,11 +102,9 @@ func (callData data) groupMsg() error {
 		var groups list.List
 		err := callData.conn.GetGroupsOfUser(userId, &groups, true)
 		if err != nil {
-			log.Println(err.Error())
 			userIsInGroup <- false
 		}
 		if groups.Len() < 0 {
-			log.Println(errors.New("groups is empty"))
 			userIsInGroup <- false
 		}
 		var isExist = false
@@ -104,8 +129,6 @@ func (callData data) groupMsg() error {
 		_, err = callData.api.Send(msg)
 		return err
 	}
-	return nil
-
 }
 
 func (callData data) generateMsgForGroupData(groupData *db.GroupData) error {
