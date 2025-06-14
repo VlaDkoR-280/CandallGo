@@ -13,7 +13,10 @@ func main() {
 		logs.SendLog(logs.LogEntry{Level: "fatal", EventType: "system", Msg: "Error creating bot", Error: err.Error()})
 		return
 	}
-	defer bot.Close()
+	defer func() {
+		bot.Close()
+		logs.SendLog(logs.LogEntry{Level: "info", EventType: "system", Msg: "Bot is stopped"})
+	}()
 	logs.SendLog(logs.LogEntry{
 		Level: "info", EventType: "system",
 		Msg: "Bot started",
