@@ -202,6 +202,7 @@ func (handler *Handler) allCommand() error {
 		return nil
 	}
 	var tagText = fmt.Sprintf("*Оповещено людей*: %d\n", userList.Len()-1)
+	var messages = list.List{}
 
 	for el := userList.Front(); el != nil; el = el.Next() {
 		elValue := el.Value.(db.UserData)
@@ -209,6 +210,10 @@ func (handler *Handler) allCommand() error {
 			continue
 		}
 		addText := fmt.Sprintf("[@](tg://user?id=%s) ", elValue.TgId)
+		if len(tagText)+len(tagText) < 4000 {
+			messages.PushBack(tagText)
+			tagText = ""
+		}
 		tagText = tagText + addText
 	}
 
@@ -227,9 +232,15 @@ func (handler *Handler) allCommand() error {
 		}
 		return err
 	}
-	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	_, err = handler.api.Send(msg)
-	return err
+	for el := messages.Front(); el != nil; el = el.Next() {
+		msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, err = handler.api.Send(msg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 
 }
