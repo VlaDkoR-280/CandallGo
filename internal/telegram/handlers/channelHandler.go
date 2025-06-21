@@ -26,6 +26,8 @@ func (h *Handler) channelForward() error {
 	var text string
 	if channelPost.Poll != nil {
 		text = channelPost.Poll.Question
+	} else if channelPost.Caption != "" {
+		text = channelPost.Caption
 	} else {
 		text = channelPost.Text
 	}
