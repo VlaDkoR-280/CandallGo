@@ -54,7 +54,7 @@ func (db *DB) GetPrices(productList *list.List) error {
 			"JOIN price_of_product pop ON p.id = pop.product_id "+
 			"JOIN currency c ON pop.currency_id = c.id "+
 			"JOIN my_provider pd ON c.provider_id=pd.id "+
-			"WHERE pd.is_active = false")
+			"WHERE pd.is_active = true")
 	if err != nil {
 		return err
 	}
