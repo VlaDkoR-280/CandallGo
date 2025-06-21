@@ -16,7 +16,7 @@ type Currency struct {
 
 func (db *DB) GetCurrency(currencies *list.List) error {
 	rows, err := db.conn.Query(context.Background(),
-		"SELECT id, name, provider_id FROM currency")
+		"SELECT c.id, c.name, c.provider_id FROM currency c JOIN my_provider p ON p.id=c.provider_id WHERE p.is_active=true")
 	if err != nil {
 		return err
 	}
