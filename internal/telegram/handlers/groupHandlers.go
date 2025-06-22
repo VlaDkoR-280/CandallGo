@@ -218,29 +218,28 @@ func (handler *Handler) allCommand() error {
 	}
 
 	if <-canTag || <-isSub {
-		msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, tagText)
-		msg.ParseMode = tgbotapi.ModeMarkdownV2
-		_, err := handler.api.Send(msg)
-		if err == nil {
-			go logs.SendLog(logs.LogEntry{
-				Level:     "info",
-				EventType: "user_action",
-				Info:      "AllCommand",
-				TgGroupID: groupId,
-				TgUserID:  strconv.FormatInt(handler.update.Message.From.ID, 10),
-			})
+		for el := messages.Front(); el != nil; el = el.Next() {
+			msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, el.Value.(string))
+			msg.ParseMode = tgbotapi.ModeMarkdownV2
+			_, err := handler.api.Send(msg)
+			if err == nil {
+				go logs.SendLog(logs.LogEntry{
+					Level:     "info",
+					EventType: "user_action",
+					Info:      "AllCommand",
+					TgGroupID: groupId,
+					TgUserID:  strconv.FormatInt(handler.update.Message.From.ID, 10),
+				})
+			} else {
+				return err
+			}
 		}
-		return err
+		return nil
 	}
-	for el := messages.Front(); el != nil; el = el.Next() {
-		msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
-		msg.ParseMode = tgbotapi.ModeMarkdownV2
-		_, err = handler.api.Send(msg)
-		if err != nil {
-			return err
-		}
-	}
+	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, handler.loc.Get("ru", "already_use"))
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, err = handler.api.Send(msg)
 
-	return nil
+	return err
 
 }
