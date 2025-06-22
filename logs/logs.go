@@ -28,14 +28,21 @@ type LogEntry struct {
 }
 
 func SendLog(entry LogEntry) {
-	conn, err := net.Dial("tcp", config.LoadConfig().LogUrl)
+	logUrl := config.LoadConfig().LogUrl
+	if logUrl == "" {
+		log.Println(entry)
+	}
+	conn, err := net.Dial("tcp", logUrl)
+	data, _ := json.Marshal(entry)
 	if err != nil {
-		log.Println("Error connecting to Log Server:", err)
+		log.Println(string(data))
 		return
 	}
 	defer func() {
 		_ = conn.Close()
 	}()
-	data, _ := json.Marshal(entry)
-	_, _ = conn.Write(append(data, '\n'))
+	_, err = conn.Write(append(data, '\n'))
+	if err != nil {
+		log.Println("Error write to vector: ", err)
+	}
 }
