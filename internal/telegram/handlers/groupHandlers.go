@@ -210,7 +210,7 @@ func (handler *Handler) allCommand() error {
 			continue
 		}
 		addText := fmt.Sprintf("[@](tg://user?id=%s) ", elValue.TgId)
-		if len(tagText)+len(tagText) < 4000 {
+		if len(tagText)+len(tagText) > 4000 {
 			messages.PushBack(tagText)
 			tagText = ""
 		}
