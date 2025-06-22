@@ -216,7 +216,9 @@ func (handler *Handler) allCommand() error {
 		}
 		tagText = tagText + addText
 	}
-
+	if tagText != "" {
+		messages.PushBack(tagText)
+	}
 	if <-canTag || <-isSub {
 		for el := messages.Front(); el != nil; el = el.Next() {
 			msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, el.Value.(string))
