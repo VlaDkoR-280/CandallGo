@@ -54,12 +54,33 @@ func (bot *Bot) Close() {
 	bot.conn.Close()
 }
 
+func (bot *Bot) UpdateMenuButton() {
+	jsonMenu := `{
+        "type": "web_app",
+        "text": "Группы",
+        "web_app": {
+            "url": "https://candall.ru"
+        }
+    }`
+	params := tgbotapi.Params{
+		"menu_button": jsonMenu,
+	}
+	if _, err := bot.api.MakeRequest("setChatMenuButton", params); err != nil {
+		logs.SendLog(logs.LogEntry{
+			Level:     "error",
+			EventType: "telegram",
+			Error:     err.Error(),
+		})
+	}
+}
+
 func (bot *Bot) Start() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.api.GetUpdatesChan(u)
 	u.AllowedUpdates = []string{"my_chat_member"}
 	var maxUpdates = make(chan struct{}, 50)
+	bot.UpdateMenuButton()
 	for update := range updates {
 		maxUpdates <- struct{}{}
 

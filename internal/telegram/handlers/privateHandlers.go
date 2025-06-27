@@ -41,19 +41,6 @@ func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, l
 
 func (handler *Handler) startPrivateCommand() error {
 	text := handler.loc.Get("ru", "start")
-	jsonMenu := `{
-        "type": "web_app",
-        "text": "Группы",
-        "web_app": {
-            "url": "https://candall.ru"
-        }
-    }`
-	params := tgbotapi.Params{
-		"menu_button": jsonMenu,
-	}
-	if _, err := handler.api.MakeRequest("setChatMenuButton", params); err != nil {
-		return err
-	}
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, err := handler.api.Send(msg)
