@@ -46,7 +46,7 @@ func (handler *Handler) startPrivateCommand() error {
 	}
 	jsonMenu := `{
         "type": "web_app",
-        "text": "Открыть Mini App",
+        "text": "Группы",
         "web_app": {
             "url": "https://candall.ru"
         }
