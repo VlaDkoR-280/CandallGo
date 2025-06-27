@@ -41,6 +41,9 @@ func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, l
 
 func (handler *Handler) startPrivateCommand() error {
 	text := handler.loc.Get("ru", "start")
+	if _, err := handler.api.Request(tgbotapi.NewSetMyCommands()); err != nil {
+		return err
+	}
 	jsonMenu := `{
         "type": "web_app",
         "text": "Открыть Mini App",
@@ -49,7 +52,6 @@ func (handler *Handler) startPrivateCommand() error {
         }
     }`
 	params := tgbotapi.Params{
-		"chat_id":     "0",
 		"menu_button": jsonMenu,
 	}
 	if _, err := handler.api.MakeRequest("setChatMenuButton", params); err != nil {
