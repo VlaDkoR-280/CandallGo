@@ -12,6 +12,7 @@ type Config struct {
 	DbUrl     string
 	ChannelId int64
 	LogUrl    string
+	WebAppUrl string
 }
 
 func LoadConfig() Config {
@@ -29,5 +30,6 @@ func LoadConfig() Config {
 		DbUrl:     os.Getenv("database_url"),
 		ChannelId: chId,
 		LogUrl:    os.Getenv("log_url"),
+		WebAppUrl: os.Getenv("web_app_url"),
 	}
 }

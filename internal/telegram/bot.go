@@ -55,13 +55,14 @@ func (bot *Bot) Close() {
 }
 
 func (bot *Bot) UpdateMenuButton() {
-	jsonMenu := `{
+	jsonMenu := fmt.Sprintf(`{
         "type": "web_app",
         "text": "Группы",
         "web_app": {
-            "url": "https://candall.ru"
+            "url": "%s"
         }
-    }`
+    }`, config.LoadConfig().WebAppUrl)
+	// web_app_url
 	params := tgbotapi.Params{
 		"menu_button": jsonMenu,
 	}
