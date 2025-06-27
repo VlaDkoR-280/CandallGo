@@ -7,7 +7,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"strconv"
 )
 
@@ -35,13 +35,26 @@ func PrivateHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, l
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
 		_, err := handler.api.Send(msg)
 		return err
-
 	}
 	return nil
 }
 
 func (handler *Handler) startPrivateCommand() error {
 	text := handler.loc.Get("ru", "start")
+	jsonMenu := `{
+        "type": "web_app",
+        "text": "Открыть Mini App",
+        "web_app": {
+            "url": "https://candall.ru"
+        }
+    }`
+	params := tgbotapi.Params{
+		"chat_id":     "0",
+		"menu_button": jsonMenu,
+	}
+	if _, err := handler.api.MakeRequest("setChatMenuButton", params); err != nil {
+		return err
+	}
 	msg := tgbotapi.NewMessage(handler.update.Message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, err := handler.api.Send(msg)
