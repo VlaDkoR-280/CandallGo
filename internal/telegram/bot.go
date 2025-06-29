@@ -91,8 +91,6 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 			return
 		}
 
-		bot.fullCheck(update)
-
 		switch update.Message.Chat.Type {
 		case "private":
 			err := handlers.PrivateHandler(bot.api, bot.conn, update, bot.loc)
@@ -119,6 +117,7 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				return
 			}
 		case "supergroup":
+			bot.fullCheck(update)
 			err := handlers.GroupHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				go logs.SendLog(logs.LogEntry{
