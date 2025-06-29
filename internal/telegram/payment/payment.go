@@ -8,10 +8,11 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/google/uuid"
 	"strconv"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
 )
 
 type Provider struct {
@@ -458,4 +459,122 @@ func (myData *data) invoiceCallback() error {
 		return err
 	}
 	return nil
+}
+
+func SuccessfulPayment(update tgbotapi.Update, conn *db.DB) {
+	var payload = update.Message.SuccessfulPayment.InvoicePayload
+	var p = update.Message.SuccessfulPayment
+	go func() {
+		err := conn.UpdateSuccessfulPayment(p.InvoicePayload, p.ProviderPaymentChargeID, p.TelegramPaymentChargeID, true, false, time.Now())
+		if err != nil {
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "data_base",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error Update SuccessfulPayment", err.Error()),
+			})
+			return
+		}
+		logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "data_base",
+			TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+			Info:      "Update SuccessfulPayment",
+		})
+	}()
+	go func() {
+		var subDays = make(chan int)
+		var cGroupId = make(chan string, 1)
+		go func() {
+			mProduct, err := conn.GetProductData(payload)
+			if err != nil {
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "data_base",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error GetProductData", err.Error()),
+				})
+				return
+			}
+			logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "data_base",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				Info:      "GetProductData",
+			})
+			subDays <- mProduct.DaysSubscribe
+		}()
+
+		go func() {
+			mPayment, err := conn.GetPaymentDataFromInvoice(payload)
+			if err != nil {
+				logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "data_base",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					Error:     fmt.Sprintf("%s\n%s", "Error GetPaymentDataFromInvoice", err.Error()),
+				})
+				return
+			}
+			go logs.SendLog(logs.LogEntry{
+				Level:     "info",
+				EventType: "data_base",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				Info:      "GetPaymentDataFromInvoice",
+			})
+			cGroupId <- mPayment.GroupId
+		}()
+
+		var groupId = <-cGroupId
+		var timeSub = <-subDays
+		newTimeSub := time.Now().AddDate(0, 0, timeSub)
+		err := conn.UpdateSubDate(groupId, newTimeSub)
+		if err != nil {
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "data_base",
+				TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+				Error:     fmt.Sprintf("%s\n%s", "Error UpdateSubDate", err.Error()),
+			})
+			return
+		}
+		logs.SendLog(logs.LogEntry{
+			Level:     "info",
+			EventType: "data_base",
+			TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+			Info:      "UpdateSubDate",
+		})
+	}()
+}
+
+func PreCheckoutQuery(update tgbotapi.Update, api *tgbotapi.BotAPI) {
+	answer := tgbotapi.PreCheckoutConfig{
+		PreCheckoutQueryID: update.PreCheckoutQuery.ID,
+		OK:                 true,
+	}
+	_, err := api.Request(answer)
+	if err != nil {
+		logs.SendLog(logs.LogEntry{
+			Level:          "error",
+			EventType:      "payment_invoice",
+			Error:          err.Error(),
+			InvoicePayload: update.PreCheckoutQuery.InvoicePayload,
+			TgUserID:       strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+		})
+		msg := tgbotapi.NewMessage(update.PreCheckoutQuery.From.ID, "*Счет устрарел*\nПовтори процесс выбора группы -> выбора подписки")
+		if _, err := api.Send(msg); err != nil {
+			logs.SendLog(logs.LogEntry{
+				Level:     "error",
+				EventType: "system",
+				Error:     err.Error(),
+				TgUserID:  strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+			})
+		}
+	}
+	logs.SendLog(logs.LogEntry{
+		Level:     "info",
+		EventType: "payment_invoice",
+		Msg:       "Successful send PreCheckoutQuery",
+		TgUserID:  strconv.FormatInt(update.PreCheckoutQuery.From.ID, 10),
+	})
 }

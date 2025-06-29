@@ -9,9 +9,10 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"strconv"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type data struct {
@@ -38,7 +39,7 @@ func MainCallback(api *tgbotapi.BotAPI, update tgbotapi.Update, conn *db.DB, gro
 	case "delete":
 		err = callData.deleteMsg()
 	case "groups":
-		err = callData.deleteMsg()
+		_ = callData.deleteMsg()
 		err = groupListCallback(api, conn, update, loc)
 		if err == nil {
 			go logs.SendLog(logs.LogEntry{
@@ -83,7 +84,7 @@ func (callData data) deleteMsg() error {
 	delMsg := tgbotapi.NewDeleteMessage(callData.update.CallbackQuery.Message.Chat.ID, callData.update.CallbackQuery.Message.MessageID)
 	resApi, err := callData.api.Request(delMsg)
 	if err != nil {
-		return errors.New(fmt.Sprintf("DeleteMsgErr: %s | ApiResponse: %s", err.Error(), resApi.Description))
+		return fmt.Errorf("DeleteMsgErr: %s | ApiResponse: %s", err.Error(), resApi.Description)
 	}
 	return nil
 }
