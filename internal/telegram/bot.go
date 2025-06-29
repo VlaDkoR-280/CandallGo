@@ -117,7 +117,15 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				return
 			}
 		case "supergroup":
-			bot.fullCheck(update)
+			if err := bot.fullCheck(update); err != nil {
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "fullCheck",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     err.Error(),
+				})
+			}
 			err := handlers.GroupHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				go logs.SendLog(logs.LogEntry{
