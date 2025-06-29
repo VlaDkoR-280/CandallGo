@@ -6,10 +6,11 @@ import (
 	"CandallGo/logs"
 	"container/list"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"strconv"
 	"strings"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc *localization.Local) error {

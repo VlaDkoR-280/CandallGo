@@ -106,7 +106,19 @@ func (bot *Bot) myUpdate(update tgbotapi.Update) {
 				})
 				return
 			}
-		case "group", "supergroup":
+		case "group":
+			err := handlers.MessageOfNeedChangeStatus(bot.api, update, bot.loc)
+			if err != nil {
+				go logs.SendLog(logs.LogEntry{
+					Level:     "error",
+					EventType: "message_change_status",
+					TgUserID:  strconv.FormatInt(update.Message.From.ID, 10),
+					TgGroupID: strconv.FormatInt(update.Message.Chat.ID, 10),
+					Error:     err.Error(),
+				})
+				return
+			}
+		case "supergroup":
 			err := handlers.GroupHandler(bot.api, bot.conn, update, bot.loc)
 			if err != nil {
 				go logs.SendLog(logs.LogEntry{
