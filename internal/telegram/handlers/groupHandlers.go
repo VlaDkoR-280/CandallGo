@@ -16,6 +16,12 @@ import (
 func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc *localization.Local) error {
 	var handler = Handler{api: api, conn: conn, update: update, loc: loc}
 	msg := update.Message
+	me, err := api.GetMe()
+	if err != nil {
+		return err
+	}
+
+	botUserName := "@" + me.UserName
 	//userId := msg.From.ID
 	//chatId := msg.Chat.ID
 	if update.Message.NewChatMembers != nil {
@@ -24,6 +30,16 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 		return handler.leftMember()
 	}
 
+	if update.Message.Entities != nil {
+		for _, entity := range update.Message.Entities {
+			if strings.EqualFold(entity.Type, "mention") {
+				mention := msg.Text[entity.Offset : entity.Offset+entity.Length]
+				if strings.EqualFold(botUserName, mention) {
+					return handler.allCommand()
+				}
+			}
+		}
+	}
 	switch msg.Command() {
 	case "start":
 		return handler.startCommand()
