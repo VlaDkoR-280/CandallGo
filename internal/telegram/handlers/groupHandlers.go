@@ -21,7 +21,6 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 		return err
 	}
 
-	botUserName := "@" + me.UserName
 	//userId := msg.From.ID
 	//chatId := msg.Chat.ID
 	if update.Message.NewChatMembers != nil {
@@ -34,7 +33,7 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 		for _, entity := range update.Message.Entities {
 			if strings.EqualFold(entity.Type, "mention") {
 				mention := msg.Text[entity.Offset : entity.Offset+entity.Length]
-				if strings.EqualFold(botUserName, mention) {
+				if strings.EqualFold(me.UserName, mention) {
 					return handler.allCommand()
 				}
 			}
