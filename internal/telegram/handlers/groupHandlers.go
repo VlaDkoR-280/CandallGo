@@ -5,6 +5,7 @@ import (
 	"CandallGo/internal/localization"
 	"CandallGo/logs"
 	"container/list"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 				if strings.EqualFold(me.UserName, mention) {
 					return handler.allCommand()
 				}
+				return errors.New(fmt.Sprintf("%s - find mention, this is not my bot %s", me.UserName))
 			}
 		}
 	}
