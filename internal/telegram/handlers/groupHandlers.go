@@ -5,7 +5,6 @@ import (
 	"CandallGo/internal/localization"
 	"CandallGo/logs"
 	"container/list"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -21,7 +20,7 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 	if err != nil {
 		return err
 	}
-
+	botUsername := "@" + me.UserName
 	//userId := msg.From.ID
 	//chatId := msg.Chat.ID
 	if update.Message.NewChatMembers != nil {
@@ -34,10 +33,10 @@ func GroupHandler(api *tgbotapi.BotAPI, conn *db.DB, update tgbotapi.Update, loc
 		for _, entity := range update.Message.Entities {
 			if strings.EqualFold(entity.Type, "mention") {
 				mention := msg.Text[entity.Offset : entity.Offset+entity.Length]
-				if strings.EqualFold(me.UserName, mention) {
+				if strings.EqualFold(botUsername, mention) {
 					return handler.allCommand()
 				}
-				return errors.New(fmt.Sprintf("%s - find mention, this is not my bot %s", me.UserName))
+				//return errors.New(fmt.Sprintf("%s - find mention, this is not my bot %s", mention, me.UserName))
 			}
 		}
 	}
